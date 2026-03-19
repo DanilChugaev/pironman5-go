@@ -6,65 +6,84 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	ws281x "github.com/rpi-ws281x/rpi-ws281x-go"
+	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
 )
 
 func main() {
-	fmt.Println("🚀 Pironman5-Go тестовый сервис запущен")
+	fmt.Println("🚀 Pironman5-Go v0.2 запущен")
 
 	// ==================== WS281x ====================
-	cfg := ws281x.DefaultConfig(4) // 4 светодиода
-	cfg.Brightness = 64
-	cfg.Channel = 0
-	cfg.GpioPin = 10 // GPIO10 — правильный для Pironman5 + Pi 5 (SPI)
+	opt := &ws2811.Option{
+		Frequency: ws2811.TargetFreq, // 800 кГц
+		DmaNum:    ws2811.DefaultDmaNum,
+		Channels: []ws2811.ChannelOption{
+			{
+				GpioPin:    10, // GPIO 10 = SPI MOSI — идеально для Pironman5 + Pi 5
+				LedCount:   4,
+				Brightness: 64,                 // 0-255, можно менять потом
+				StripeType: ws2811.WS2812Strip, // GRB порядок (стандарт для WS2812)
+				Invert:     false,
+			},
+		},
+	}
 
-	strip, err := ws281x.MakeWS2811(&cfg)
+	dev, err := ws2811.MakeWS2811(opt)
 	if err != nil {
-		log.Fatalf("Не удалось создать strip: %v", err)
+		log.Fatalf("MakeWS2811 ошибка: %v", err)
 	}
-	defer strip.Close()
+	defer dev.Fini() // ← правильный способ очистки
 
-	if err := strip.Init(); err != nil {
-		log.Fatalf("Init не прошёл: %v", err)
+	if err := dev.Init(); err != nil {
+		log.Fatalf("Init ошибка: %v", err)
 	}
 
-	// Тест: зажигаем все красным на 5 секунд при старте
-	for i := 0; i < 4; i++ {
-		strip.Leds(0)[i] = 0xFF0000 // красный
+	// Тест при запуске: все светодиоды красные 5 сек
+	leds := dev.Leds(0)
+	for i := range leds {
+		leds[i] = 0xFF0000 // красный (работает с WS2812)
 	}
-	strip.Render()
+	if err := dev.Render(); err != nil {
+		log.Println("Render:", err)
+	}
 	time.Sleep(5 * time.Second)
-	for i := 0; i < 4; i++ {
-		strip.Leds(0)[i] = 0x000000
-	}
-	strip.Render()
 
-	// ==================== HTTP сервер ====================
+	// Выключаем
+	for i := range leds {
+		leds[i] = 0x000000
+	}
+	dev.Render()
+
+	// ==================== HTTP ====================
 	r := gin.Default()
 
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "Pironman5-Go работает!", "version": "0.1-test"})
+		c.JSON(200, gin.H{"status": "OK", "leds": "готовы", "gpio": 10})
 	})
 
-	r.POST("/rgb/test", func(c *gin.Context) {
-		color := c.Query("color")
-		if color == "red" {
-			for i := 0; i < 4; i++ {
-				strip.Leds(0)[i] = 0xFF0000
+	r.POST("/rgb", func(c *gin.Context) {
+		color := c.Query("c") // ?c=red / blue / green / off
+		switch color {
+		case "red":
+			for i := range leds {
+				leds[i] = 0xFF0000
 			}
-		} else if color == "blue" {
-			for i := 0; i < 4; i++ {
-				strip.Leds(0)[i] = 0x0000FF
+		case "blue":
+			for i := range leds {
+				leds[i] = 0x0000FF
 			}
-		} else {
-			for i := 0; i < 4; i++ {
-				strip.Leds(0)[i] = 0x00FF00
+		case "green":
+			for i := range leds {
+				leds[i] = 0x00FF00
+			}
+		default:
+			for i := range leds {
+				leds[i] = 0x000000
 			}
 		}
-		strip.Render()
+		dev.Render()
 		c.JSON(200, gin.H{"ok": true, "color": color})
 	})
 
-	log.Println("Сервер слушает :34001")
+	log.Println("🌐 Сервер на http://0.0.0.0:34001")
 	r.Run(":34001")
 }
