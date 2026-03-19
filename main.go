@@ -41,14 +41,14 @@ func initGPIO() error {
 func sendBit(bit bool) {
 	if bit {
 		_ = line.SetValue(1)
-		time.Sleep(850 * time.Nanosecond) // T1H ~0.7–0.9 мкс
+		time.Sleep(800 * time.Nanosecond) // T1H ~0.7–0.9 мкс
 		_ = line.SetValue(0)
 		time.Sleep(400 * time.Nanosecond) // T1L ~0.6 мкс
 	} else {
 		_ = line.SetValue(1)
 		time.Sleep(400 * time.Nanosecond) // T0H ~0.35 мкс
 		_ = line.SetValue(0)
-		time.Sleep(850 * time.Nanosecond) // T0L ~0.8 мкс
+		time.Sleep(800 * time.Nanosecond) // T0L ~0.8 мкс
 	}
 }
 
