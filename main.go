@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,187 +11,136 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stianeikeland/go-rpio/v4"
+	"golang.org/x/exp/io/spi"
 )
 
-// Конфигурация
 const (
-	ledPin   = 10 // GPIO10 (BCM numbering) для Pironman5
-	httpPort = ":34001"
-	ledCount = 4
+	spiDevice   = "/dev/spidev0.0" // или spidev10.0 в зависимости от конфига
+	ledCount    = 4
+	httpPort    = ":34001"
+	spiSpeedHz  = 3200000 // 3.2–4 MHz обычно оптимально для WS2812
 )
 
-// Глобальное состояние
-var (
-	pin      rpio.Pin
-	leds     [ledCount]uint32 // Хранение цвета в формате 0xRRGGBB
-	gpioOpen bool
-)
+var leds [ledCount]uint32 // 0xRRGGBB
 
-// initGPIO инициализирует GPIO один раз при старте
-func initGPIO() error {
-	// Попытка открыть GPIO
-	// На Pi 5 иногда требуется явно указать версию, но обычно библиотека сама определяет.
-	// Если возникает ошибка здесь, проверьте права доступа (sudo) и версию библиотеки.
-	if err := rpio.Open(); err != nil {
-		return fmt.Errorf("failed to open gpio: %w", err)
-	}
+func rgbToSPIBytes(colors []uint32) []byte {
+	// WS2812: 24 бита GRB на LED → 3 байта
+	// SPI bit-stuffing: каждый бит → 3 SPI-бита (110 = 1, 100 = 0)
+	// → 24 бита → 72 SPI-бита → 9 байт на LED
+	buf := make([]byte, ledCount*24*3/8) // 9 байт × ledCount
 
-	pin = rpio.Pin(ledPin)
-	pin.Mode(rpio.Output)
-	pin.Low()
+	pos := 0
+	for _, c := range colors {
+		// RGB → GRB
+		g := byte((c >> 8) & 0xFF)
+		r := byte((c >> 16) & 0xFF)
+		b := byte(c & 0xFF)
 
-	gpioOpen = true
-	fmt.Println("✅ GPIO initialized successfully")
-	return nil
-}
+		for _, octet := range []byte{g, r, b} {
+			for bit := 7; bit >= 0; bit-- {
+				b := (octet >> uint(bit)) & 1
+				var pattern byte
+				if b == 1 {
+					pattern = 0b110 // T1H ≈ 0.8 μs, T1L ≈ 0.45 μs при 3.2 MHz
+				} else {
+					pattern = 0b100 // T0H ≈ 0.4 μs, T0L ≈ 0.85 μs
+				}
 
-// closeGPIO безопасно закрывает соединение
-func closeGPIO() {
-	if gpioOpen {
-		rpio.Close()
-		gpioOpen = false
-		fmt.Println("🛑 GPIO closed")
-	}
-}
-
-// sendWS2812 отправляет данные на один светодиод
-// Внимание: time.Sleep в Linux не гарантирует точность до наносекунд.
-// Для продакшена на Pi 5 настоятельно рекомендуется использовать библиотеку,
-// работающую через демон pigpio (например, github.com/rpi-ws281x-go/ws281x),
-// но этот код оставляет битбанг для зависимости только от stdlib + rpio.
-func sendWS2812(color uint32) {
-	if !gpioOpen {
-		log.Println("⚠️ GPIO not open, skipping LED update")
-		return
-	}
-
-	// WS2812 использует порядок байт GRB, но мы храним как RGB.
-	// Нужно пересобрать биты или менять логику формирования цвета.
-	// В исходном коде автора цвет передавался как есть, предположим, что пользователь передает уже готовый паттерн
-	// или библиотека/светодиоды принимают RGB.
-	// Стандарт WS2812: Green first, then Red, then Blue.
-	// Если у вас цвета смешиваются, нужно сделать своп байтов здесь.
-
-	// Преобразуем 0xRRGGBB в поток битов для отправки (предполагаем, что входной цвет уже в нужном порядке или светодиоды простые)
-	// Для классических WS2812B порядок данных: G7..G0, R7..R0, B7..B0
-
-	grbColor := ((color & 0x00FF00) << 8) | ((color & 0xFF0000) >> 8) | (color & 0x0000FF)
-
-	for i := 23; i >= 0; i-- {
-		bit := (grbColor >> uint(i)) & 1
-		if bit == 1 {
-			pin.High()
-			time.Sleep(800 * time.Nanosecond) // T1H
-			pin.Low()
-			time.Sleep(450 * time.Nanosecond) // T1L
-		} else {
-			pin.High()
-			time.Sleep(400 * time.Nanosecond) // T0H
-			pin.Low()
-			time.Sleep(850 * time.Nanosecond) // T0L
+				// Распределяем 3 бита по байтам
+				buf[pos/8] |= pattern << (5 - (pos % 8)) // старшие биты
+				if pos%8 >= 5 {
+					buf[(pos/8)+1] |= pattern >> (8 - (5 - (pos % 8)))
+				}
+				pos += 3
+			}
 		}
 	}
+
+	// Reset > 50 μs → просто добавить нули в конце (SPI сам даст паузу)
+	buf = append(buf, make([]byte, 50)...)
+
+	return buf
 }
 
-// updateLEDs обновляет всю ленту
-func updateLEDs() {
-	if !gpioOpen {
-		return
+func updateLEDs() error {
+	dev, err := spi.Open(&spi.Devfs{
+		Dev:      spiDevice,
+		Mode:     spi.Mode0,
+		MaxSpeed: spiSpeedHz,
+	})
+	if err != nil {
+		return err
 	}
+	defer dev.Close()
 
-	// Сброс линии перед передачей (не всегда обязательно, но полезно)
-	pin.Low()
-	time.Sleep(60 * time.Microsecond)
-
-	for i := 0; i < ledCount; i++ {
-		sendWS2812(leds[i])
-	}
-
-	// Reset signal (низкий уровень > 50 мкс)
-	pin.Low()
-	time.Sleep(100 * time.Microsecond)
-}
-
-// setAllColors устанавливает цвет всем светодиодам
-func setAllColors(color uint32) {
-	for i := range leds {
-		leds[i] = color
-	}
-	updateLEDs()
+	data := rgbToSPIBytes(leds[:])
+	_, err = dev.Write(data)
+	return err
 }
 
 func main() {
-	fmt.Printf("🚀 Pironman5-Go v0.4\n")
+	fmt.Println("🚀 Pironman5-Go v0.6 — SPI bit-stuffing mode")
 
-	// Инициализация GPIO
-	if err := initGPIO(); err != nil {
-		log.Fatalf("❌ Critical error initializing GPIO: %v\nЗапустите программу с sudo или проверьте права на /dev/gpiomem", err)
-	}
-
-	// Обработка сигналов завершения для корректного закрытия GPIO
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	// Graceful shutdown
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigChan
-		fmt.Println("\n🛑 Shutting down...")
-		setAllColors(0x000000) // Выключаем свет перед выходом
-		closeGPIO()
+		<-sig
+		fmt.Println("\nВыключаем LED...")
+		for i := range leds {
+			leds[i] = 0
+		}
+		updateLEDs()
 		os.Exit(0)
 	}()
 
-	// Тестовый прогон при старте
-	fmt.Println("💡 Running startup test (Red -> Off)")
-	setAllColors(0xFF0000) // Красный
-	time.Sleep(1 * time.Second)
-	setAllColors(0x000000) // Выкл
+	// Тест при запуске
+	for i := range leds {
+		leds[i] = 0xFF0000 // красный
+	}
+	if err := updateLEDs(); err != nil {
+		log.Fatalf("SPI init failed: %v", err)
+	}
+	time.Sleep(3 * time.Second)
+	for i := range leds {
+		leds[i] = 0
+	}
+	updateLEDs()
 
-	// Настройка Gin
-	gin.SetMode(gin.ReleaseMode) // Тише логи в консоли
+	// HTTP
 	r := gin.Default()
 
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status":     "OK",
-			"version":    "v0.4-refactor",
-			"platform":   "Raspberry Pi 5",
-			"leds_count": ledCount,
-		})
+		c.JSON(200, gin.H{"status": "ok", "driver": "SPI bitbang"})
 	})
 
 	r.POST("/rgb", func(c *gin.Context) {
 		col := c.Query("c")
-		var targetColor uint32
-		var name string
-
+		var clr uint32
 		switch col {
 		case "red":
-			targetColor = 0xFF0000
-			name = "red"
+			clr = 0xFF0000
 		case "green":
-			targetColor = 0x00FF00
-			name = "green"
+			clr = 0x00FF00
 		case "blue":
-			targetColor = 0x0000FF
-			name = "blue"
-		case "white":
-			targetColor = 0xFFFFFF
-			name = "white"
+			clr = 0x0000FF
 		case "off":
-			targetColor = 0x000000
-			name = "off"
+			clr = 0
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid color. use: red, green, blue, white, off"})
+			c.JSON(400, gin.H{"error": "unknown color"})
 			return
 		}
 
-		setAllColors(targetColor)
-		c.JSON(http.StatusOK, gin.H{"ok": true, "color": name, "hex": fmt.Sprintf("%06X", targetColor)})
+		for i := range leds {
+			leds[i] = clr
+		}
+		if err := updateLEDs(); err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"ok": true, "color": col})
 	})
 
-	// Запуск сервера
-	log.Printf("🌐 Server started on http://0.0.0.0%s", httpPort)
-	if err := r.Run(httpPort); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
+	log.Printf("Сервер на %s", httpPort)
+	r.Run(httpPort)
 }

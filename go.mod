@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/gin-gonic/gin v1.12.0
-	github.com/stianeikeland/go-rpio/v4 v4.6.0
+	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90
 )
 
 require (
