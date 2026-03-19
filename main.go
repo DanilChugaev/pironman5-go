@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,10 +13,10 @@ import (
 )
 
 const (
-	spiDevice   = "/dev/spidev0.0" // или spidev10.0 в зависимости от конфига
-	ledCount    = 4
-	httpPort    = ":34001"
-	spiSpeedHz  = 3200000 // 3.2–4 MHz обычно оптимально для WS2812
+	spiDevice  = "/dev/spidev0.0" // или spidev10.0 в зависимости от конфига
+	ledCount   = 4
+	httpPort   = ":34001"
+	spiSpeedHz = 3200000 // 3.2–4 MHz обычно оптимально для WS2812
 )
 
 var leds [ledCount]uint32 // 0xRRGGBB
