@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	gpioChip = "gpiochip4" // на Pi 5 обычно gpiochip4 (RP1)
+	gpioChip = "gpiochip0" // на Pi 5 обычно gpiochip0
 	dataPin  = 10          // GPIO10 = BCM 10, физ. пин 19 (MOSI)
 	ledCount = 4
 	httpPort = ":34001"
@@ -40,14 +41,14 @@ func initGPIO() error {
 func sendBit(bit bool) {
 	if bit {
 		_ = line.SetValue(1)
-		time.Sleep(700 * time.Nanosecond) // T1H ~0.7–0.9 мкс
+		time.Sleep(850 * time.Nanosecond) // T1H ~0.7–0.9 мкс
 		_ = line.SetValue(0)
-		time.Sleep(600 * time.Nanosecond) // T1L ~0.6 мкс
+		time.Sleep(400 * time.Nanosecond) // T1L ~0.6 мкс
 	} else {
 		_ = line.SetValue(1)
-		time.Sleep(350 * time.Nanosecond) // T0H ~0.35 мкс
+		time.Sleep(400 * time.Nanosecond) // T0H ~0.35 мкс
 		_ = line.SetValue(0)
-		time.Sleep(800 * time.Nanosecond) // T0L ~0.8 мкс
+		time.Sleep(850 * time.Nanosecond) // T0L ~0.8 мкс
 	}
 }
 
@@ -71,7 +72,7 @@ func updateLEDs() {
 
 	// Reset >50 мкс
 	_ = line.SetValue(0)
-	time.Sleep(100 * time.Microsecond)
+	time.Sleep(300 * time.Microsecond)
 
 	for i := 0; i < ledCount; i++ {
 		sendColor(leds[i])
@@ -79,10 +80,11 @@ func updateLEDs() {
 
 	// Финальный reset
 	_ = line.SetValue(0)
-	time.Sleep(300 * time.Microsecond)
+	time.Sleep(500 * time.Microsecond)
 }
 
 func main() {
+	runtime.LockOSThread()
 	fmt.Println("🚀 Pironman5-Go v0.9 — go-gpiocdev bit-bang WS2812")
 
 	if err := initGPIO(); err != nil {
@@ -142,6 +144,34 @@ func main() {
 		}
 		updateLEDs()
 		c.JSON(200, gin.H{"ok": true, "color": col})
+	})
+	})
+
+	r.POST("/rgb/test", func(c *gin.Context) {
+		col := c.Query("c")
+		var clr uint32
+		switch col {
+		case "red":
+			clr = 0xFF0000
+		case "green":
+			clr = 0x00FF00
+		case "blue":
+			clr = 0x0000FF
+		case "off":
+			clr = 0
+		default:
+			c.JSON(400, gin.H{"error": "unknown color"})
+			return
+		}
+
+		line.SetValue(0)
+		time.Sleep(1 * time.Millisecond)
+
+		for i := range leds {
+			leds[i] = clr
+		}
+		updateLEDs()
+		c.JSON(200, gin.H{"ok": true, "color": col, "value": fmt.Sprintf("0x%06x", clr)})
 	})
 
 	log.Printf("Сервер на %s", httpPort)
