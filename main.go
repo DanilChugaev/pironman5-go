@@ -6,84 +6,98 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
+	"github.com/stianeikeland/go-rpio/v4"
 )
 
+const ledPin = 10 // GPIO10 — именно то, что использует Pironman5
+
+var leds [4]uint32 // 0xRRGGBB
+
+func sendWS2812(pin rpio.Pin, color uint32) {
+	// Простой, но надёжный bit-bang для WS2812 (GRB порядок)
+	pin.Output()
+	pin.Low()
+	time.Sleep(50 * time.Microsecond)
+
+	for i := 0; i < 24; i++ {
+		bit := (color >> uint(23-i)) & 1
+		if bit == 1 {
+			pin.High()
+			// T1H ≈ 0.8 мкс
+			time.Sleep(800 * time.Nanosecond)
+			pin.Low()
+			time.Sleep(450 * time.Nanosecond)
+		} else {
+			pin.High()
+			time.Sleep(400 * time.Nanosecond)
+			pin.Low()
+			time.Sleep(850 * time.Nanosecond)
+		}
+	}
+	pin.Low()
+}
+
+func updateLEDs() {
+	rpio.Open()
+	defer rpio.Close()
+	pin := rpio.Pin(ledPin)
+	pin.Mode(rpio.Output)
+
+	for i := 0; i < 4; i++ {
+		sendWS2812(pin, leds[i])
+	}
+	// RES (низкий уровень >50 мкс)
+	time.Sleep(100 * time.Microsecond)
+}
+
 func main() {
-	fmt.Println("🚀 Pironman5-Go v0.2 запущен")
+	fmt.Println("🚀 Pironman5-Go v0.3 (Pi 5 native, без ws281x)")
 
-	// ==================== WS281x ====================
-	opt := &ws2811.Option{
-		Frequency: ws2811.TargetFreq, // 800 кГц
-		DmaNum:    ws2811.DefaultDmaNum,
-		Channels: []ws2811.ChannelOption{
-			{
-				GpioPin:    10, // GPIO 10 = SPI MOSI — идеально для Pironman5 + Pi 5
-				LedCount:   4,
-				Brightness: 64,                 // 0-255, можно менять потом
-				StripeType: ws2811.WS2812Strip, // GRB порядок (стандарт для WS2812)
-				Invert:     false,
-			},
-		},
-	}
+	rpio.Open()
+	defer rpio.Close()
 
-	dev, err := ws2811.MakeWS2811(opt)
-	if err != nil {
-		log.Fatalf("MakeWS2811 ошибка: %v", err)
-	}
-	defer dev.Fini() // ← правильный способ очистки
-
-	if err := dev.Init(); err != nil {
-		log.Fatalf("Init ошибка: %v", err)
-	}
-
-	// Тест при запуске: все светодиоды красные 5 сек
-	leds := dev.Leds(0)
+	// Тест при запуске — все красные 5 сек
 	for i := range leds {
-		leds[i] = 0xFF0000 // красный (работает с WS2812)
+		leds[i] = 0xFF0000
 	}
-	if err := dev.Render(); err != nil {
-		log.Println("Render:", err)
-	}
+	updateLEDs()
 	time.Sleep(5 * time.Second)
-
-	// Выключаем
 	for i := range leds {
 		leds[i] = 0x000000
 	}
-	dev.Render()
+	updateLEDs()
 
-	// ==================== HTTP ====================
+	// HTTP
 	r := gin.Default()
 
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "OK", "leds": "готовы", "gpio": 10})
+		c.JSON(200, gin.H{"status": "OK", "message": "Работает на Pi 5!", "leds": "готовы"})
 	})
 
 	r.POST("/rgb", func(c *gin.Context) {
-		color := c.Query("c") // ?c=red / blue / green / off
-		switch color {
+		col := c.Query("c")
+		switch col {
 		case "red":
 			for i := range leds {
 				leds[i] = 0xFF0000
-			}
-		case "blue":
-			for i := range leds {
-				leds[i] = 0x0000FF
 			}
 		case "green":
 			for i := range leds {
 				leds[i] = 0x00FF00
 			}
-		default:
+		case "blue":
+			for i := range leds {
+				leds[i] = 0x0000FF
+			}
+		case "off":
 			for i := range leds {
 				leds[i] = 0x000000
 			}
 		}
-		dev.Render()
-		c.JSON(200, gin.H{"ok": true, "color": color})
+		updateLEDs()
+		c.JSON(200, gin.H{"ok": true, "color": col})
 	})
 
-	log.Println("🌐 Сервер на http://0.0.0.0:34001")
+	log.Println("🌐 Сервер запущен → http://0.0.0.0:34001")
 	r.Run(":34001")
 }
