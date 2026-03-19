@@ -7,28 +7,68 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/exp/io/spi"
 )
 
 const (
-	spiDevice  = "/dev/spidev0.0" // или spidev10.0 в зависимости от конфига
+	spiDevice  = "/dev/spidev0.0" // проверь ls /dev/spidev* после raspi-config → SPI Yes
 	ledCount   = 4
 	httpPort   = ":34001"
-	spiSpeedHz = 3200000 // 3.2–4 MHz обычно оптимально для WS2812
+	spiSpeedHz = 3200000 // 3.2 MHz — часто оптимально; можно 2500000 / 4000000
 )
 
 var leds [ledCount]uint32 // 0xRRGGBB
 
-func rgbToSPIBytes(colors []uint32) []byte {
-	// WS2812: 24 бита GRB на LED → 3 байта
-	// SPI bit-stuffing: каждый бит → 3 SPI-бита (110 = 1, 100 = 0)
-	// → 24 бита → 72 SPI-бита → 9 байт на LED
-	buf := make([]byte, ledCount*24*3/8) // 9 байт × ledCount
+// ioctl константы для SPI (из linux/spi/spidev.h)
+const (
+	SPI_IOC_MESSAGE_BASE = 0x40006b00 // _IOW('k', 0, ...)
+	SPI_IOC_WR_MAX_SPEED = 0x40046b04 // _IOW('k', 4, __u32)
+)
 
-	pos := 0
-	for _, c := range colors {
+type spiIocTransfer struct {
+	TxBuf       uint64
+	RxBuf       uint64
+	Len         uint32
+	SpeedHz     uint32
+	DelayUsecs  uint16
+	BitsPerWord uint8
+	CSChange    uint8
+	TxNbits     uint8
+	RxNbits     uint8
+	Pad         uint16
+}
+
+func setSPISpeed(fd uintptr, speed uint32) error {
+	return ioctl(fd, SPI_IOC_WR_MAX_SPEED, uintptr(unsafe.Pointer(&speed)))
+}
+
+func ioctl(fd, request, arg uintptr) error {
+	_, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, fd, request, arg)
+	if e1 != 0 {
+		return syscall.Errno(e1)
+	}
+	return nil
+}
+
+func spiTransfer(fd uintptr, tx []byte) error {
+	xfers := []spiIocTransfer{
+		{
+			TxBuf:       uint64(uintptr(unsafe.Pointer(&tx[0]))),
+			Len:         uint32(len(tx)),
+			SpeedHz:     spiSpeedHz,
+			BitsPerWord: 8,
+		},
+	}
+
+	return ioctl(fd, SPI_IOC_MESSAGE_BASE|uintptr(len(xfers)), uintptr(unsafe.Pointer(&xfers[0])))
+}
+
+func rgbToSPIBytes() []byte {
+	buf := make([]byte, 0, ledCount*24*3/8+50)
+
+	for _, c := range leds {
 		// RGB → GRB
 		g := byte((c >> 8) & 0xFF)
 		r := byte((c >> 16) & 0xFF)
@@ -36,55 +76,50 @@ func rgbToSPIBytes(colors []uint32) []byte {
 
 		for _, octet := range []byte{g, r, b} {
 			for bit := 7; bit >= 0; bit-- {
-				b := (octet >> uint(bit)) & 1
-				var pattern byte
-				if b == 1 {
-					pattern = 0b110 // T1H ≈ 0.8 μs, T1L ≈ 0.45 μs при 3.2 MHz
+				if (octet>>uint(bit))&1 == 1 {
+					buf = append(buf, 0b11000000>>2, 0b00000000, 0b00000000) // подгонка под 3 бита на байт
 				} else {
-					pattern = 0b100 // T0H ≈ 0.4 μs, T0L ≈ 0.85 μs
+					buf = append(buf, 0b10000000>>2, 0b00000000, 0b00000000)
 				}
-
-				// Распределяем 3 бита по байтам
-				buf[pos/8] |= pattern << (5 - (pos % 8)) // старшие биты
-				if pos%8 >= 5 {
-					buf[(pos/8)+1] |= pattern >> (8 - (5 - (pos % 8)))
-				}
-				pos += 3
 			}
 		}
 	}
 
-	// Reset > 50 μs → просто добавить нули в конце (SPI сам даст паузу)
-	buf = append(buf, make([]byte, 50)...)
+	// Reset >50us — просто длинная пауза низкого уровня (много нулей)
+	for i := 0; i < 50; i++ {
+		buf = append(buf, 0)
+	}
 
 	return buf
 }
 
 func updateLEDs() error {
-	dev, err := spi.Open(&spi.Devfs{
-		Dev:      spiDevice,
-		Mode:     spi.Mode0,
-		MaxSpeed: spiSpeedHz,
-	})
+	f, err := os.OpenFile(spiDevice, os.O_RDWR, 0)
 	if err != nil {
 		return err
 	}
-	defer dev.Close()
+	defer f.Close()
 
-	data := rgbToSPIBytes(leds[:])
-	_, err = dev.Write(data)
-	return err
+	fd := f.Fd()
+
+	// Устанавливаем скорость
+	if err := setSPISpeed(fd, spiSpeedHz); err != nil {
+		return err
+	}
+
+	data := rgbToSPIBytes()
+	return spiTransfer(fd, data)
 }
 
 func main() {
-	fmt.Println("🚀 Pironman5-Go v0.6 — SPI bit-stuffing mode")
+	fmt.Println("🚀 Pironman5-Go v0.7 — чистый SPI + ioctl (без внешних пакетов)")
 
-	// Graceful shutdown
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
 		<-sig
-		fmt.Println("\nВыключаем LED...")
+		fmt.Println("\nВыключаем...")
 		for i := range leds {
 			leds[i] = 0
 		}
@@ -92,12 +127,12 @@ func main() {
 		os.Exit(0)
 	}()
 
-	// Тест при запуске
+	// Тест
 	for i := range leds {
-		leds[i] = 0xFF0000 // красный
+		leds[i] = 0xFF0000
 	}
 	if err := updateLEDs(); err != nil {
-		log.Fatalf("SPI init failed: %v", err)
+		log.Fatalf("Ошибка запуска: %v", err)
 	}
 	time.Sleep(3 * time.Second)
 	for i := range leds {
@@ -105,11 +140,10 @@ func main() {
 	}
 	updateLEDs()
 
-	// HTTP
 	r := gin.Default()
 
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok", "driver": "SPI bitbang"})
+		c.JSON(200, gin.H{"status": "ok", "driver": "native SPI ioctl"})
 	})
 
 	r.POST("/rgb", func(c *gin.Context) {
@@ -125,10 +159,9 @@ func main() {
 		case "off":
 			clr = 0
 		default:
-			c.JSON(400, gin.H{"error": "unknown color"})
+			c.JSON(400, gin.H{"error": "неизвестный цвет"})
 			return
 		}
-
 		for i := range leds {
 			leds[i] = clr
 		}
@@ -139,6 +172,6 @@ func main() {
 		c.JSON(200, gin.H{"ok": true, "color": col})
 	})
 
-	log.Printf("Сервер на %s", httpPort)
+	log.Printf("Сервер запущен на %s", httpPort)
 	r.Run(httpPort)
 }

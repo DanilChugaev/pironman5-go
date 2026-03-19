@@ -2,10 +2,7 @@ module github.com/DanilChugaev/pironman5-go
 
 go 1.26.1
 
-require (
-	github.com/gin-gonic/gin v1.12.0
-	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90
-)
+require github.com/gin-gonic/gin v1.12.0
 
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
