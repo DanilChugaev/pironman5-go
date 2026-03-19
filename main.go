@@ -145,7 +145,6 @@ func main() {
 		updateLEDs()
 		c.JSON(200, gin.H{"ok": true, "color": col})
 	})
-	})
 
 	r.POST("/rgb/test", func(c *gin.Context) {
 		col := c.Query("c")
