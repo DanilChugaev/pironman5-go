@@ -16,7 +16,7 @@ const (
 )
 
 func printStatus() {
-	exec.Command("sudo", "python3", "./scripts/status/print_status.py").Run()
+	exec.Command("sudo", "python3", "scripts/status/print_status.py").Run()
 }
 
 func main() {
