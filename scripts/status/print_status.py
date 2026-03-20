@@ -1,4 +1,4 @@
-from .status import *
+from status import *
 
 print(f'CPU temperature: {get_cpu_temperature()} °C')
 print(f'CPU percent: {get_cpu_percent()} %')

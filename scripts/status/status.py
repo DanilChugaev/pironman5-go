@@ -1,6 +1,6 @@
 # original - https://github.com/sunfounder/sf_rpi_status/blob/main/sf_rpi_status/status.py
 
-from .utils import run_command
+from utils import run_command
 import subprocess
 import os
 import json
