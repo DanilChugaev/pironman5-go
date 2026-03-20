@@ -20,7 +20,6 @@ APT_PACKAGES=(
     "i2c-tools"
     "python3-gpiozero"
     "lsof"
-    "pyudev"
 )
 
 # Пакеты для установки через pip
@@ -34,6 +33,7 @@ PIP_PACKAGES=(
     "gpiozero"
     "gpiod"
     "rpi.lgpio"
+    "pyudev"
 )
 
 # Дополнительные bash-скрипты для выполнения
