@@ -107,7 +107,7 @@ run_custom_scripts() {
         if [ -f "$script" ]; then
             log "INFO" "Выполнение: $script"
             chmod +x "$script"
-            bash "$script"
+            sudo bash "$script"
             log "SUCCESS" "Скрипт выполнен: $script"
         else
             log "WARNING" "Скрипт не найден: $script"
