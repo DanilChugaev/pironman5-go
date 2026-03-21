@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,12 +28,12 @@ func main() {
 		// status.PrintStatus()
 		statusObj := status.GetStatus()
 
-		statusJSON, err := json.Marshal(statusObj)
-		if err != nil {
-			log.Fatal(err)
-		}
+		// statusJSON, err := json.Marshal(statusObj)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 
-		c.JSON(http.StatusOK, gin.H{"success": true, "status": statusJSON})
+		c.JSON(http.StatusOK, gin.H{"success": true, "status": statusObj})
 	})
 
 	router.POST("/api/rgb", func(c *gin.Context) {
