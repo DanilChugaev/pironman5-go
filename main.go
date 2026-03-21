@@ -15,11 +15,11 @@ const (
 	httpPort = ":34001"
 )
 
-type ResponseDTO struct {
+type ResponseDTO[T any] struct {
 	Success bool   `json:"success"`
 	Code    int    `json:"code"`
 	Message string `json:"message"`
-	Data    any    `json:"data"`
+	Data    T      `json:"data"`
 }
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 		// status.PrintStatus()
 		statusObj := status.GetStatus()
 
-		c.JSON(http.StatusOK, ResponseDTO{
+		c.JSON(http.StatusOK, ResponseDTO[status.RPIStatusDTO]{
 			Success: true,
 			Code:    http.StatusOK,
 			Message: http.StatusText(http.StatusOK),
