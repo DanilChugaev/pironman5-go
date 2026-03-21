@@ -29,7 +29,7 @@ func runPythonCommand(method string) string {
 	cmd := exec.Command("venv/bin/python3", script)
 
 	// Запуск и получение вывода
-	output, err := cmd.CombinedOutput()
+	output, err := cmd.Output()
 	if err != nil {
 		log.Fatalf("Ошибка запуска: %s", err)
 	}
