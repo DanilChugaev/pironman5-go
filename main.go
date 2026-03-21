@@ -29,7 +29,7 @@ func main() {
 		status.PrintStatus()
 		statusObj := status.GetStatus()
 
-		statusJSON, err := json.Marshal(statusObj)
+		statusJSON, err := json.Marshal([]any{"status", statusObj})
 		if err != nil {
 			log.Fatal(err)
 		}
