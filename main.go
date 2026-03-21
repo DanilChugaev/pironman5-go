@@ -16,7 +16,15 @@ const (
 )
 
 func printStatus() {
-	exec.Command("sudo", "-E", "venv/bin/python3", "scripts/status/print_status.py").Run()
+	cmd := exec.Command("sudo", "-E", "venv/bin/python3", "scripts/status/print_status.py")
+
+	// Запуск и получение вывода
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Fatalf("Ошибка запуска: %s", err)
+	}
+
+	fmt.Println(string(output))
 }
 
 func main() {
