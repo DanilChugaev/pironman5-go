@@ -1,3 +1,3 @@
-from statuses import get_cpu_temperature
+import get_cpu_temperature
 
 get_cpu_temperature()
