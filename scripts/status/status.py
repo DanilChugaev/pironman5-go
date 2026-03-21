@@ -353,12 +353,8 @@ def _get_ips():
     return IPs
 
 def get_ips():
-    from ha_api import ha_api
-    ips = None
-    if ha_api.is_homeassistant_addon():
-        ips = ha_api.get_ips()
-    else:
-        ips = _get_ips()
+    from ha_api import get_ips
+    ips = get_ips()
 
     result = {}
     for key in ips:
