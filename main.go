@@ -1,11 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os/exec"
 
+	"github.com/DanilChugaev/pironman5-go/pkg/status"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,18 +15,6 @@ const (
 	// ledCount = 4
 	httpPort = ":34001"
 )
-
-func printStatus() {
-	cmd := exec.Command("sudo", "-E", "venv/bin/python3", "scripts/status/print_status.py")
-
-	// Запуск и получение вывода
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Fatalf("Ошибка запуска: %s", err)
-	}
-
-	fmt.Println(string(output))
-}
 
 func main() {
 	fmt.Println("🚀 Pironman5-Go v0.10 — go + python scripts")
@@ -37,8 +26,15 @@ func main() {
 	})
 
 	router.GET("/api/status", func(c *gin.Context) {
-		printStatus()
-		c.JSON(http.StatusOK, gin.H{"success": true, "status": "?"})
+		status.PrintStatus()
+		statusObj := status.GetStatus()
+
+		statusJSON, err := json.Marshal(statusObj)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true, "status": statusJSON})
 	})
 
 	router.POST("/api/rgb", func(c *gin.Context) {

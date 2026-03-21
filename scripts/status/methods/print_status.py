@@ -1,6 +1,7 @@
 from status import *
 
 print(f'CPU temperature: {get_cpu_temperature()} °C')
+print(f'GPU temperature: {get_gpu_temperature()} °C')
 print(f'CPU percent: {get_cpu_percent()} %')
 print(f'CPU percent(per CPU): {get_cpu_percent(True)}')
 print(f'CPU frequency: {get_cpu_freq()}')
