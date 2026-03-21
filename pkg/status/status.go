@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strings"
 )
 
 type RPIStatusDTO struct {
@@ -37,16 +38,16 @@ func runPythonCommand(method string) string {
 	return string(output)
 }
 
+func GetStatus() RPIStatusDTO {
+	return RPIStatusDTO{
+		CPUTemperature: getCpuTemperature(),
+	}
+}
+
 func PrintStatus() {
 	fmt.Println(runPythonCommand("print_status"))
 }
 
 func getCpuTemperature() string {
-	return runPythonCommand("get_cpu_temperature")
-}
-
-func GetStatus() RPIStatusDTO {
-	return RPIStatusDTO{
-		CPUTemperature: getCpuTemperature(),
-	}
+	return strings.ReplaceAll(runPythonCommand("get_cpu_temperature"), "/n", "")
 }

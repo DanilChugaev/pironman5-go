@@ -15,6 +15,13 @@ const (
 	httpPort = ":34001"
 )
 
+type ResponseDTO struct {
+	success       bool
+	statusCode    int
+	statusMessage string
+	data          any
+}
+
 func main() {
 	fmt.Println("🚀 Pironman5-Go v0.10 — go + python scripts")
 
@@ -28,12 +35,12 @@ func main() {
 		// status.PrintStatus()
 		statusObj := status.GetStatus()
 
-		// statusJSON, err := json.Marshal(statusObj)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		c.JSON(http.StatusOK, gin.H{"success": true, "status": statusObj})
+		c.JSON(http.StatusOK, ResponseDTO{
+			success:       true,
+			statusCode:    http.StatusOK,
+			statusMessage: http.StatusText(http.StatusOK),
+			data:          statusObj,
+		})
 	})
 
 	router.POST("/api/rgb", func(c *gin.Context) {
