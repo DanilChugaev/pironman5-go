@@ -26,10 +26,10 @@ func main() {
 	})
 
 	router.GET("/api/status", func(c *gin.Context) {
-		status.PrintStatus()
+		// status.PrintStatus()
 		statusObj := status.GetStatus()
 
-		statusJSON, err := json.Marshal([]any{"status", statusObj})
+		statusJSON, err := json.Marshal(statusObj)
 		if err != nil {
 			log.Fatal(err)
 		}
