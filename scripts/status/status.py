@@ -353,8 +353,7 @@ def _get_ips():
     return IPs
 
 def get_ips():
-    from ha_api import get_ips
-    ips = get_ips()
+    ips = _get_ips()
 
     result = {}
     for key in ips:
