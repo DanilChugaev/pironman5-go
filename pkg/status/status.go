@@ -25,7 +25,7 @@ type RPIStatusDTO struct {
 }
 
 func runPythonCommand(method string) string {
-	script := "scripts/status/methods/" + method + ".py"
+	script := "scripts/status/" + method + ".py"
 	cmd := exec.Command("venv/bin/python3", script)
 
 	// Запуск и получение вывода

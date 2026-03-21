@@ -1,4 +1,4 @@
-from status import *
+from statuses import *
 
 print(f'CPU temperature: {get_cpu_temperature()} °C')
 print(f'GPU temperature: {get_gpu_temperature()} °C')
