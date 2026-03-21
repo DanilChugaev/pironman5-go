@@ -27,8 +27,8 @@ type RPIStatusDTO struct {
 }
 
 func runPythonCommand(method string) string {
-	script := "scripts/status/" + method + ".py"
-	cmd := exec.Command("venv/bin/python3", script)
+	script := "scripts.rpi_status.methods." + method + ".py"
+	cmd := exec.Command("venv/bin/python3", "-m", script)
 
 	// Запуск и получение вывода
 	output, err := cmd.Output()
