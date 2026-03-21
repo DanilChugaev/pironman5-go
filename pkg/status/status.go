@@ -50,7 +50,7 @@ func PrintStatus() {
 }
 
 func getCpuTemperature() float64 {
-	result, err := strconv.ParseFloat(strings.ReplaceAll(runPythonCommand("get_cpu_temperature"), "/n", ""), 64)
+	result, err := strconv.ParseFloat(strings.ReplaceAll(runPythonCommand("get_cpu_temperature"), "\n", ""), 64)
 
 	if err != nil {
 		fmt.Println("Ошибка преобразования:", err)
