@@ -16,10 +16,10 @@ const (
 )
 
 type ResponseDTO struct {
-	success       bool
-	statusCode    int
-	statusMessage string
-	data          any
+	Success       bool
+	StatusCode    int
+	StatusMessage string
+	Data          any
 }
 
 func main() {
@@ -36,10 +36,10 @@ func main() {
 		statusObj := status.GetStatus()
 
 		c.JSON(http.StatusOK, ResponseDTO{
-			success:       true,
-			statusCode:    http.StatusOK,
-			statusMessage: http.StatusText(http.StatusOK),
-			data:          statusObj,
+			Success:       true,
+			StatusCode:    http.StatusOK,
+			StatusMessage: http.StatusText(http.StatusOK),
+			Data:          statusObj,
 		})
 	})
 

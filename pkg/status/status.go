@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
 type RPIStatusDTO struct {
-	CPUTemperature string `json:"cpu_temperature"`
+	CPUTemperature float64 `json:"cpu_temperature"`
 	// GPUTemperature        float64  `json:"gpu_temperature"`
 	// CpuPercent            float64  `json:"cpu_percent"`
 	// CpuPercentPerCPU      any      `json:"cpu_percent_per_cpu"`
@@ -48,6 +49,13 @@ func PrintStatus() {
 	fmt.Println(runPythonCommand("print_status"))
 }
 
-func getCpuTemperature() string {
-	return strings.ReplaceAll(runPythonCommand("get_cpu_temperature"), "/n", "")
+func getCpuTemperature() float64 {
+	result, err := strconv.ParseFloat(strings.ReplaceAll(runPythonCommand("get_cpu_temperature"), "/n", ""), 64)
+
+	if err != nil {
+		fmt.Println("Ошибка преобразования:", err)
+		return 0.0
+	}
+
+	return result
 }
