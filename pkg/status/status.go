@@ -108,11 +108,11 @@ func getCpuPercent() float64 {
 }
 
 func getCpuPercentPerCpu() any {
-	return runPythonCommand("get_cpu_percent_per_cpu")
+	return replaceIndent(runPythonCommand("get_cpu_percent_per_cpu"))
 }
 
 func getCpuFrequency() string {
-	return replaceIndent(runPythonCommand("get_cpu_freq"))
+	return replaceIndent(runPythonCommand("get_cpu_frequency"))
 }
 
 func getCpuCount() uint64 {
@@ -128,11 +128,11 @@ func getDiskInfo() string {
 }
 
 func getDiskInfoPerDisk() any {
-	return runPythonCommand("get_disks_info")
+	return replaceIndent(runPythonCommand("get_disk_info_per_disk"))
 }
 
 func getDisks() any {
-	return runPythonCommand("get_disks")
+	return replaceIndent(runPythonCommand("get_disks"))
 }
 
 func getBootTime() string {
@@ -140,17 +140,17 @@ func getBootTime() string {
 }
 
 func getIps() any {
-	return runPythonCommand("get_ips")
+	return replaceIndent(runPythonCommand("get_ips"))
 }
 
 func getMacs() any {
-	return runPythonCommand("get_macs")
+	return replaceIndent(runPythonCommand("get_macs"))
 }
 
 func getNetworkConnectionType() any {
-	return runPythonCommand("get_network_connection_type")
+	return replaceIndent(runPythonCommand("get_network_connection_type"))
 }
 
 func getNetworkSpeed() any {
-	return runPythonCommand("get_network_speed")
+	return replaceIndent(runPythonCommand("get_network_speed"))
 }
