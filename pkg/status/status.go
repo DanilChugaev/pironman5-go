@@ -9,30 +9,42 @@ import (
 )
 
 type RPIStatusDTO struct {
-	CPUTemperature float64 `json:"cpu_temperature"`
-	GPUTemperature float64 `json:"gpu_temperature"`
-	CpuPercent     float64 `json:"cpu_percent"`
-	// CpuPercentPerCPU      any      `json:"cpu_percent_per_cpu"`
-	// CpuFrequency          string   `json:"cpu_frequency"`
-	// CpuCount              uint     `json:"cpu_count"`
-	// MemoryInfo            string   `json:"memory_info"`
-	// DiskInfo              string   `json:"disk_info"`
-	// DiskInfoPerDisk       any      `json:"disk_info_per_disk"`
-	// Disks                 []string `json:"disks"`
-	// BootTime              float64  `json:"boot_time"`
-	// Ips                   any      `json:"ips"`
-	// Macs                  any      `json:"macs"`
-	// NetworkConnectionType any      `json:"network_connection_type"`
-	// NetworkSpeed          any      `json:"network_speed"`
+	CPUTemperature        float64 `json:"cpu_temperature"`
+	GPUTemperature        float64 `json:"gpu_temperature"`
+	CpuPercent            float64 `json:"cpu_percent"`
+	CpuPercentPerCPU      any     `json:"cpu_percent_per_cpu"`
+	CpuFrequency          string  `json:"cpu_frequency"`
+	CpuCount              uint64  `json:"cpu_count"`
+	MemoryInfo            string  `json:"memory_info"`
+	DiskInfo              string  `json:"disk_info"`
+	Disks                 any     `json:"disks"`
+	DiskInfoPerDisk       any     `json:"disk_info_per_disk"`
+	BootTime              float64 `json:"boot_time"`
+	Ips                   any     `json:"ips"`
+	Macs                  any     `json:"macs"`
+	NetworkConnectionType any     `json:"network_connection_type"`
+	NetworkSpeed          any     `json:"network_speed"`
 }
 
 // == внешние методы ==
 
 func GetStatus() RPIStatusDTO {
 	return RPIStatusDTO{
-		CPUTemperature: getCpuTemperature(),
-		GPUTemperature: getGpuTemperature(),
-		CpuPercent:     getCpuPercent(),
+		CPUTemperature:        getCpuTemperature(),
+		GPUTemperature:        getGpuTemperature(),
+		CpuPercent:            getCpuPercent(),
+		CpuPercentPerCPU:      getCpuPercentPerCpu(),
+		CpuFrequency:          getCpuFrequency(),
+		CpuCount:              getCpuCount(),
+		MemoryInfo:            getMemoryInfo(),
+		DiskInfo:              getDiskInfo(),
+		Disks:                 getDisks(),
+		DiskInfoPerDisk:       getDiskInfoPerDisk(),
+		BootTime:              getBootTime(),
+		Ips:                   getIps(),
+		Macs:                  getMacs(),
+		NetworkConnectionType: getNetworkConnectionType(),
+		NetworkSpeed:          getNetworkSpeed(),
 	}
 }
 
@@ -55,8 +67,23 @@ func runPythonCommand(method string) string {
 	return string(output)
 }
 
+func replaceIndent(str string) string {
+	return strings.ReplaceAll(str, "\n", "")
+}
+
+func strToUint(str string) uint64 {
+	result, err := strconv.ParseUint(replaceIndent(str), 10, 64)
+
+	if err != nil {
+		fmt.Println("Ошибка преобразования:", err)
+		return 0.0
+	}
+
+	return result
+}
+
 func strToFloat(str string) float64 {
-	result, err := strconv.ParseFloat(strings.ReplaceAll(str, "\n", ""), 64)
+	result, err := strconv.ParseFloat(replaceIndent(str), 64)
 
 	if err != nil {
 		fmt.Println("Ошибка преобразования:", err)
@@ -78,4 +105,52 @@ func getGpuTemperature() float64 {
 
 func getCpuPercent() float64 {
 	return strToFloat(runPythonCommand("get_cpu_percent"))
+}
+
+func getCpuPercentPerCpu() any {
+	return runPythonCommand("get_cpu_percent_per_cpu")
+}
+
+func getCpuFrequency() string {
+	return replaceIndent(runPythonCommand("get_cpu_freq"))
+}
+
+func getCpuCount() uint64 {
+	return strToUint(runPythonCommand("get_cpu_count"))
+}
+
+func getMemoryInfo() string {
+	return replaceIndent(runPythonCommand("get_memory_info"))
+}
+
+func getDiskInfo() string {
+	return replaceIndent(runPythonCommand("get_disk_info"))
+}
+
+func getDiskInfoPerDisk() any {
+	return runPythonCommand("get_disks_info")
+}
+
+func getDisks() any {
+	return runPythonCommand("get_disks")
+}
+
+func getBootTime() string {
+	return replaceIndent(runPythonCommand("get_boot_time"))
+}
+
+func getIps() any {
+	return strToFloat(runPythonCommand("get_ips"))
+}
+
+func getMacs() any {
+	return strToFloat(runPythonCommand("get_macs"))
+}
+
+func getNetworkConnectionType() any {
+	return strToFloat(runPythonCommand("get_network_connection_type"))
+}
+
+func getNetworkSpeed() any {
+	return strToFloat(runPythonCommand("get_network_speed"))
 }
