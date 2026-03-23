@@ -19,7 +19,7 @@ type RPIStatusDTO struct {
 	DiskInfo              string  `json:"disk_info"`
 	Disks                 any     `json:"disks"`
 	DiskInfoPerDisk       any     `json:"disk_info_per_disk"`
-	BootTime              float64 `json:"boot_time"`
+	BootTime              string  `json:"boot_time"`
 	Ips                   any     `json:"ips"`
 	Macs                  any     `json:"macs"`
 	NetworkConnectionType any     `json:"network_connection_type"`
