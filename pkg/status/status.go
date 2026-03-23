@@ -140,17 +140,17 @@ func getBootTime() string {
 }
 
 func getIps() any {
-	return strToFloat(runPythonCommand("get_ips"))
+	return runPythonCommand("get_ips")
 }
 
 func getMacs() any {
-	return strToFloat(runPythonCommand("get_macs"))
+	return runPythonCommand("get_macs")
 }
 
 func getNetworkConnectionType() any {
-	return strToFloat(runPythonCommand("get_network_connection_type"))
+	return runPythonCommand("get_network_connection_type")
 }
 
 func getNetworkSpeed() any {
-	return strToFloat(runPythonCommand("get_network_speed"))
+	return runPythonCommand("get_network_speed")
 }
