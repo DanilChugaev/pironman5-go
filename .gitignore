@@ -2,3 +2,4 @@
 *.bin
 pironman5
 .DS_Store
+config.json
