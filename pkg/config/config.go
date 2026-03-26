@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 type RPIRgbStyle string
@@ -51,7 +50,8 @@ type RPIConfigDTO struct {
 }
 
 // --- Структура для частичного обновления ---
-// Поля являются указателями. Если поле nil, оно не обновляется.
+// Поля являются указателями
+// Если поле nil, оно не обновляется
 type RPIConfigUpdate struct {
 	RgbColor              *string         `json:"rgb_color,omitempty"`
 	RgbBrightness         *uint64         `json:"rgb_brightness,omitempty"`
@@ -67,9 +67,11 @@ type RPIConfigUpdate struct {
 	VibrationSwitchPullUp *bool           `json:"vibration_switch_pull_up,omitempty"`
 }
 
+const CONFIG_PATH = "pkg/config/config.json"
+
 // == вспомогательные функции ==
 
-// getDefaultValue возвращает конфигурацию с заводскими настройками
+// getDefaultValue возвращает конфигурацию с дефолтными настройками
 func getDefaultValue() RPIConfigDTO {
 	return RPIConfigDTO{
 		RgbColor:              "#0a1aff",
@@ -87,34 +89,30 @@ func getDefaultValue() RPIConfigDTO {
 	}
 }
 
-// getConfigPath возвращает полный путь к файлу конфигурации в директории исполняемого файла
-func getConfigPath() (string, error) {
-	ex, err := os.Executable()
+// writeConfigFile записывает структуру в файл
+func writeConfigFile(path string, cfg *RPIConfigDTO) error {
+	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	exPath := filepath.Dir(ex)
+	fmt.Println(path)
 
-	return filepath.Join(exPath, "config.json"), nil
+	// Права 0644: чтение/запись для владельца, чтение для остальных
+	return os.WriteFile(path, data, 0644)
 }
 
 // == чтение или создание конфига ==
 
-// LoadConfig читает файл конфигурации.
-// Если файла не существует, он создается с дефолтными значениями.
-// Возвращает указатель на структуру конфигурации.
+// LoadConfig читает файл конфигурации
+// Если файла не существует, он создается с дефолтными значениями
+// Возвращает указатель на структуру конфигурации
 func LoadConfig() (*RPIConfigDTO, error) {
-	path, err := getConfigPath()
-	if err != nil {
-		return nil, fmt.Errorf("Ошибка получения пути к конфигу: %w", err)
-	}
-
 	// Проверяем существование файла
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, err := os.Stat(CONFIG_PATH); os.IsNotExist(err) {
 		// Файла нет, создаем с дефолтными значениями
 		defaultCfg := getDefaultValue()
-		if err := writeConfigFile(path, &defaultCfg); err != nil {
+		if err := writeConfigFile(CONFIG_PATH, &defaultCfg); err != nil {
 			return nil, fmt.Errorf("Ошибка создания конфига с дефолтными настройками: %w", err)
 		}
 
@@ -126,7 +124,7 @@ func LoadConfig() (*RPIConfigDTO, error) {
 	}
 
 	// Файл существует, читаем его
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(CONFIG_PATH)
 	if err != nil {
 		return nil, fmt.Errorf("Ошибка чтения конфига: %w", err)
 	}
@@ -137,17 +135,6 @@ func LoadConfig() (*RPIConfigDTO, error) {
 	}
 
 	return &cfg, nil
-}
-
-// writeConfigFile вспомогательная функция для записи структуры в файл
-func writeConfigFile(path string, cfg *RPIConfigDTO) error {
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	// Права 0644: чтение/запись для владельца, чтение для остальных
-	return os.WriteFile(path, data, 0644)
 }
 
 // == обновление конфига ==
@@ -201,11 +188,7 @@ func UpdateConfig(updates *RPIConfigUpdate) (*RPIConfigDTO, error) {
 	}
 
 	// 3. Записываем обновленный конфиг в файл
-	path, err := getConfigPath()
-	if err != nil {
-		return nil, err
-	}
-	if err := writeConfigFile(path, currentCfg); err != nil {
+	if err := writeConfigFile(CONFIG_PATH, currentCfg); err != nil {
 		return nil, fmt.Errorf("Ошибка обновления конфига: %w", err)
 	}
 
