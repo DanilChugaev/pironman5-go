@@ -23,22 +23,33 @@ type ResponseDTO[T any] struct {
 	Data    T      `json:"data"`
 }
 
-func HandleServerError(c *gin.Context, s int) {
+func HandleServerError(c *gin.Context, s int, m string) {
 	errorData := make(map[string]string)
 
 	errorData["path"] = c.Request.URL.Path
 	errorData["method"] = c.Request.Method
 
+	messageData := ""
+
+	if m == "" {
+		messageData = http.StatusText(s)
+	} else {
+		messageData = m
+	}
+
+	// добавить вывод err и errorData
+	fmt.Println(messageData)
+
 	c.JSON(s, ResponseDTO[map[string]string]{
 		Success: false,
 		Code:    s,
-		Message: http.StatusText(s),
+		Message: messageData,
 		Data:    errorData,
 	})
 }
 
 func main() {
-	fmt.Println("🚀 Pironman5-Go v0.11.2")
+	fmt.Println("🚀 Pironman5-Go v0.11.3")
 
 	// == инициализируем дефолтный конфиг, если его нет ==
 	_, err := config.LoadConfig()
@@ -54,7 +65,7 @@ func main() {
 	router.GET("/api/health", func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				HandleServerError(c, http.StatusInternalServerError)
+				HandleServerError(c, http.StatusInternalServerError, "")
 			}
 		}()
 
@@ -70,7 +81,7 @@ func main() {
 	router.GET("/api/status", func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				HandleServerError(c, http.StatusInternalServerError)
+				HandleServerError(c, http.StatusInternalServerError, "")
 			}
 		}()
 
@@ -85,18 +96,17 @@ func main() {
 		})
 	})
 
-	// == конфигурация периферии ==
+	// == получение конфига периферии ==
 	router.GET("/api/config", func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				HandleServerError(c, http.StatusInternalServerError)
+				HandleServerError(c, http.StatusInternalServerError, "")
 			}
 		}()
 
 		configData, err := config.LoadConfig()
 		if err != nil {
-			HandleServerError(c, http.StatusNotFound)
-			fmt.Printf("Оштбка получения конфига: %v\n", err)
+			HandleServerError(c, http.StatusNotFound, "Ошибка получения конфига")
 			return
 		}
 
@@ -108,9 +118,39 @@ func main() {
 		})
 	})
 
-	// == обработка несуществующих маршрутов ==
+	// == обновление конфига периферии ==
+	router.PUT("/api/config", func(c *gin.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				HandleServerError(c, http.StatusInternalServerError, "")
+			}
+		}()
+
+		// Парсим входящие данные в структуру частичного обновления
+		var updateData config.RPIConfigUpdate
+		if err := c.ShouldBindJSON(&updateData); err != nil {
+			HandleServerError(c, http.StatusBadRequest, "Некорректный объект в запросе")
+			return
+		}
+
+		// Вызываем функцию обновления конфига
+		updatedConfig, err := config.UpdateConfig(&updateData)
+		if err != nil {
+			HandleServerError(c, http.StatusInternalServerError, "Ошибка обновления конфига")
+			return
+		}
+
+		c.JSON(http.StatusOK, ResponseDTO[*config.RPIConfigDTO]{
+			Success: true,
+			Code:    http.StatusOK,
+			Message: http.StatusText(http.StatusOK),
+			Data:    updatedConfig,
+		})
+	})
+
+	// == обработка несуществующих роутов ==
 	router.NoRoute(func(c *gin.Context) {
-		HandleServerError(c, http.StatusNotFound)
+		HandleServerError(c, http.StatusNotFound, "Несуществующий роут")
 	})
 
 	log.Printf("Сервер на %s", httpPort)
