@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/DanilChugaev/pironman5-go/pkg/config"
 	"github.com/DanilChugaev/pironman5-go/pkg/status"
 	"github.com/gin-gonic/gin"
 )
@@ -22,13 +23,41 @@ type ResponseDTO[T any] struct {
 	Data    T      `json:"data"`
 }
 
+func HandleServerError(c *gin.Context, s int) {
+	errorData := make(map[string]string)
+
+	errorData["path"] = c.Request.URL.Path
+	errorData["method"] = c.Request.Method
+
+	c.JSON(s, ResponseDTO[map[string]string]{
+		Success: false,
+		Code:    s,
+		Message: http.StatusText(s),
+		Data:    errorData,
+	})
+}
+
 func main() {
-	fmt.Println("🚀 Pironman5-Go v0.10 — go + python scripts")
+	fmt.Println("🚀 Pironman5-Go v0.11.2")
+
+	// == инициализируем дефолтный конфиг, если его нет ==
+	_, err := config.LoadConfig()
+	if err != nil {
+		fmt.Printf("Ошибка инициализации конфига: %v\n", err)
+		return
+	}
 
 	router := gin.Default()
+	// gin.SetMode(gin.ReleaseMode)
 
 	// == состояние сервера ==
 	router.GET("/api/health", func(c *gin.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				HandleServerError(c, http.StatusInternalServerError)
+			}
+		}()
+
 		c.JSON(http.StatusOK, ResponseDTO[string]{
 			Success: true,
 			Code:    http.StatusOK,
@@ -41,59 +70,47 @@ func main() {
 	router.GET("/api/status", func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				c.JSON(http.StatusInternalServerError, ResponseDTO[string]{
-					Success: true,
-					Code:    http.StatusInternalServerError,
-					Message: http.StatusText(http.StatusInternalServerError),
-					Data:    "Что-то не работает",
-				})
+				HandleServerError(c, http.StatusInternalServerError)
 			}
 		}()
 
 		// status.PrintStatus()
-		statusObj := status.GetStatus()
+		statusData := status.GetStatus()
 
 		c.JSON(http.StatusOK, ResponseDTO[status.RPIStatusDTO]{
 			Success: true,
 			Code:    http.StatusOK,
 			Message: http.StatusText(http.StatusOK),
-			Data:    statusObj,
+			Data:    statusData,
 		})
 	})
-
-	// TODO: как сделать так, чтобы при запросе несуществующего урла сервер не падал
 
 	// == конфигурация периферии ==
 	router.GET("/api/config", func(c *gin.Context) {
-		// statusObj := status.GetStatus()
+		defer func() {
+			if err := recover(); err != nil {
+				HandleServerError(c, http.StatusInternalServerError)
+			}
+		}()
 
-		// c.JSON(http.StatusOK, ResponseDTO[status.RPIStatusDTO]{
-		// 	Success: true,
-		// 	Code:    http.StatusOK,
-		// 	Message: http.StatusText(http.StatusOK),
-		// 	Data:    statusObj,
-		// })
+		configData, err := config.LoadConfig()
+		if err != nil {
+			HandleServerError(c, http.StatusNotFound)
+			fmt.Printf("Оштбка получения конфига: %v\n", err)
+			return
+		}
+
+		c.JSON(http.StatusOK, ResponseDTO[*config.RPIConfigDTO]{
+			Success: true,
+			Code:    http.StatusOK,
+			Message: http.StatusText(http.StatusOK),
+			Data:    configData,
+		})
 	})
-
-	// router.POST("/api/rgb", func(c *gin.Context) {
-	// 	col := c.Query("c")
-
-	// 	c.JSON(http.StatusOK, gin.H{"success": true, "color": col})
-	// })
 
 	// == обработка несуществующих маршрутов ==
 	router.NoRoute(func(c *gin.Context) {
-		errorData := make(map[string]string)
-
-		errorData["path"] = c.Request.URL.Path
-		errorData["method"] = c.Request.Method
-
-		c.JSON(404, ResponseDTO[map[string]string]{
-			Success: false,
-			Code:    http.StatusNotFound,
-			Message: http.StatusText(http.StatusNotFound),
-			Data:    errorData,
-		})
+		HandleServerError(c, http.StatusNotFound)
 	})
 
 	log.Printf("Сервер на %s", httpPort)

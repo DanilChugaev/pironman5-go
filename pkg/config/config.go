@@ -1,5 +1,12 @@
 package config
 
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
 type RPIRgbStyle string
 type RPIGpioFanMode uint64
 type RPIGpioFanLed string
@@ -41,4 +48,166 @@ type RPIConfigDTO struct {
 	GpioFanMode           RPIGpioFanMode `json:"gpio_fan_mode"`            // range 0-4
 	GpioFanLed            RPIGpioFanLed  `json:"gpio_fan_led"`             // "on" | "off" | "follow"
 	VibrationSwitchPullUp bool           `json:"vibration_switch_pull_up"` // true | false
+}
+
+// --- Структура для частичного обновления ---
+// Поля являются указателями. Если поле nil, оно не обновляется.
+type RPIConfigUpdate struct {
+	RgbColor              *string         `json:"rgb_color,omitempty"`
+	RgbBrightness         *uint64         `json:"rgb_brightness,omitempty"`
+	RgbStyle              *RPIRgbStyle    `json:"rgb_style,omitempty"`
+	RgbSpeed              *uint64         `json:"rgb_speed,omitempty"`
+	RgbEnabled            *bool           `json:"rgb_enabled,omitempty"`
+	OledEnabled           *bool           `json:"oled_enabled,omitempty"`
+	OledDisk              *string         `json:"oled_disk,omitempty"`
+	OledNetworkInterface  *string         `json:"oled_network_interface,omitempty"`
+	OledSleepTimeout      *uint64         `json:"oled_sleep_timeout,omitempty"`
+	GpioFanMode           *RPIGpioFanMode `json:"gpio_fan_mode,omitempty"`
+	GpioFanLed            *RPIGpioFanLed  `json:"gpio_fan_led,omitempty"`
+	VibrationSwitchPullUp *bool           `json:"vibration_switch_pull_up,omitempty"`
+}
+
+// == вспомогательные функции ==
+
+// getDefaultValue возвращает конфигурацию с заводскими настройками
+func getDefaultValue() RPIConfigDTO {
+	return RPIConfigDTO{
+		RgbColor:              "#0a1aff",
+		RgbBrightness:         50,
+		RgbStyle:              Breathing,
+		RgbSpeed:              50,
+		RgbEnabled:            true,
+		OledEnabled:           true,
+		OledDisk:              "total",
+		OledNetworkInterface:  "all",
+		OledSleepTimeout:      10,
+		GpioFanMode:           AlwaysOn,
+		GpioFanLed:            Follow,
+		VibrationSwitchPullUp: false,
+	}
+}
+
+// getConfigPath возвращает полный путь к файлу конфигурации в директории исполняемого файла
+func getConfigPath() (string, error) {
+	ex, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+
+	exPath := filepath.Dir(ex)
+
+	return filepath.Join(exPath, "config.json"), nil
+}
+
+// == чтение или создание конфига ==
+
+// LoadConfig читает файл конфигурации.
+// Если файла не существует, он создается с дефолтными значениями.
+// Возвращает указатель на структуру конфигурации.
+func LoadConfig() (*RPIConfigDTO, error) {
+	path, err := getConfigPath()
+	if err != nil {
+		return nil, fmt.Errorf("Ошибка получения пути к конфигу: %w", err)
+	}
+
+	// Проверяем существование файла
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		// Файла нет, создаем с дефолтными значениями
+		defaultCfg := getDefaultValue()
+		if err := writeConfigFile(path, &defaultCfg); err != nil {
+			return nil, fmt.Errorf("Ошибка создания конфига с дефолтными настройками: %w", err)
+		}
+
+		fmt.Println("Конфиг создан с дефолтными настройками")
+
+		return &defaultCfg, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("Ошибка проверки конфига: %w", err)
+	}
+
+	// Файл существует, читаем его
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("Ошибка чтения конфига: %w", err)
+	}
+
+	var cfg RPIConfigDTO
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("Ошибка парсинга JSON из конфига: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+// writeConfigFile вспомогательная функция для записи структуры в файл
+func writeConfigFile(path string, cfg *RPIConfigDTO) error {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	// Права 0644: чтение/запись для владельца, чтение для остальных
+	return os.WriteFile(path, data, 0644)
+}
+
+// == обновление конфига ==
+
+// UpdateConfig загружает текущий конфиг, обновляет его переданными данными
+// и записывает результат обратно в файл.
+// Позволяет передавать только часть параметров (через структуру RPIConfigUpdate).
+func UpdateConfig(updates *RPIConfigUpdate) (*RPIConfigDTO, error) {
+	// 1. Используем предыдущую функцию для получения актуального конфига
+	currentCfg, err := LoadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config for update: %w", err)
+	}
+
+	// 2. Обновляем поля только если они не nil (частичное обновление)
+	if updates.RgbColor != nil {
+		currentCfg.RgbColor = *updates.RgbColor
+	}
+	if updates.RgbBrightness != nil {
+		currentCfg.RgbBrightness = *updates.RgbBrightness
+	}
+	if updates.RgbStyle != nil {
+		currentCfg.RgbStyle = *updates.RgbStyle
+	}
+	if updates.RgbSpeed != nil {
+		currentCfg.RgbSpeed = *updates.RgbSpeed
+	}
+	if updates.RgbEnabled != nil {
+		currentCfg.RgbEnabled = *updates.RgbEnabled
+	}
+	if updates.OledEnabled != nil {
+		currentCfg.OledEnabled = *updates.OledEnabled
+	}
+	if updates.OledDisk != nil {
+		currentCfg.OledDisk = *updates.OledDisk
+	}
+	if updates.OledNetworkInterface != nil {
+		currentCfg.OledNetworkInterface = *updates.OledNetworkInterface
+	}
+	if updates.OledSleepTimeout != nil {
+		currentCfg.OledSleepTimeout = *updates.OledSleepTimeout
+	}
+	if updates.GpioFanMode != nil {
+		currentCfg.GpioFanMode = *updates.GpioFanMode
+	}
+	if updates.GpioFanLed != nil {
+		currentCfg.GpioFanLed = *updates.GpioFanLed
+	}
+	if updates.VibrationSwitchPullUp != nil {
+		currentCfg.VibrationSwitchPullUp = *updates.VibrationSwitchPullUp
+	}
+
+	// 3. Записываем обновленный конфиг в файл
+	path, err := getConfigPath()
+	if err != nil {
+		return nil, err
+	}
+	if err := writeConfigFile(path, currentCfg); err != nil {
+		return nil, fmt.Errorf("Ошибка обновления конфига: %w", err)
+	}
+
+	return currentCfg, nil
 }

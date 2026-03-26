@@ -75,7 +75,7 @@ func strToUint(str string) uint64 {
 	result, err := strconv.ParseUint(replaceIndent(str), 10, 64)
 
 	if err != nil {
-		fmt.Println("Ошибка преобразования:", err)
+		fmt.Println("Ошибка преобразования strToUint:", err)
 		return 0.0
 	}
 
@@ -86,7 +86,7 @@ func strToFloat(str string) float64 {
 	result, err := strconv.ParseFloat(replaceIndent(str), 64)
 
 	if err != nil {
-		fmt.Println("Ошибка преобразования:", err)
+		fmt.Println("Ошибка преобразования strToFloat:", err)
 		return 0.0
 	}
 
