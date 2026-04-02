@@ -30,7 +30,7 @@ type RPIStatusDTO struct {
 
 func GetStatus() RPIStatusDTO {
 	return RPIStatusDTO{
-		CPUTemperature:        getCpuTemperature(),
+		CPUTemperature:        GetCpuTemperature(),
 		GPUTemperature:        getGpuTemperature(),
 		CpuPercent:            getCpuPercent(),
 		CpuPercentPerCPU:      getCpuPercentPerCpu(),
@@ -95,7 +95,7 @@ func strToFloat(str string) float64 {
 
 // == todo: заменить реализацию методов на чистый GO ==
 
-func getCpuTemperature() float64 {
+func GetCpuTemperature() float64 {
 	return strToFloat(runPythonCommand("get_cpu_temperature"))
 }
 

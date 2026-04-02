@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/DanilChugaev/pironman5-go/pkg/config"
+	"github.com/DanilChugaev/pironman5-go/pkg/fan"
 	"github.com/DanilChugaev/pironman5-go/pkg/status"
 	"github.com/gin-gonic/gin"
 )
@@ -49,14 +50,17 @@ func HandleServerError(c *gin.Context, s int, m string) {
 }
 
 func main() {
-	fmt.Println("🚀 Pironman5-Go v0.11.5")
+	fmt.Println("🚀 Pironman5-Go v0.12.0")
 
 	// == инициализируем дефолтный конфиг, если его нет ==
-	_, err := config.LoadConfig()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		fmt.Printf("Ошибка инициализации конфига: %v\n", err)
 		return
 	}
+
+	// == апускаем контроль вентиляторов в фоне ==
+	go fan.StartFanControlLoop(cfg.FanUpdateInterval)
 
 	router := gin.Default()
 	// gin.SetMode(gin.ReleaseMode)

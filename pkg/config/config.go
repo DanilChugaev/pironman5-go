@@ -47,6 +47,9 @@ type RPIConfigDTO struct {
 	GpioFanMode           RPIGpioFanMode `json:"gpio_fan_mode"`            // range 0-4
 	GpioFanLed            RPIGpioFanLed  `json:"gpio_fan_led"`             // "on" | "off" | "follow"
 	VibrationSwitchPullUp bool           `json:"vibration_switch_pull_up"` // true | false
+	FanUpdateInterval     uint64         `json:"fan_update_interval"`      // секунды, default 5
+	FanMainStartTemp      float64        `json:"fan_main_start_temp"`      // °C, default 50.0
+	FanAddStartTemp       float64        `json:"fan_add_start_temp"`       // °C, default 60.0
 }
 
 // --- Структура для частичного обновления ---
@@ -65,6 +68,9 @@ type RPIConfigUpdate struct {
 	GpioFanMode           *RPIGpioFanMode `json:"gpio_fan_mode,omitempty"`
 	GpioFanLed            *RPIGpioFanLed  `json:"gpio_fan_led,omitempty"`
 	VibrationSwitchPullUp *bool           `json:"vibration_switch_pull_up,omitempty"`
+	FanUpdateInterval     *uint64         `json:"fan_update_interval,omitempty"`
+	FanMainStartTemp      *float64        `json:"fan_main_start_temp,omitempty"`
+	FanAddStartTemp       *float64        `json:"fan_add_start_temp,omitempty"`
 }
 
 const CONFIG_PATH = "pkg/config/config.json"
@@ -86,6 +92,9 @@ func getDefaultValue() RPIConfigDTO {
 		GpioFanMode:           AlwaysOn,
 		GpioFanLed:            Follow,
 		VibrationSwitchPullUp: false,
+		FanUpdateInterval:     5,
+		FanMainStartTemp:      50.0,
+		FanAddStartTemp:       60.0,
 	}
 }
 
@@ -185,6 +194,15 @@ func UpdateConfig(updates *RPIConfigUpdate) (*RPIConfigDTO, error) {
 	}
 	if updates.VibrationSwitchPullUp != nil {
 		currentCfg.VibrationSwitchPullUp = *updates.VibrationSwitchPullUp
+	}
+	if updates.FanUpdateInterval != nil {
+		currentCfg.FanUpdateInterval = *updates.FanUpdateInterval
+	}
+	if updates.FanMainStartTemp != nil {
+		currentCfg.FanMainStartTemp = *updates.FanMainStartTemp
+	}
+	if updates.FanAddStartTemp != nil {
+		currentCfg.FanAddStartTemp = *updates.FanAddStartTemp
 	}
 
 	// 3. Записываем обновленный конфиг в файл
