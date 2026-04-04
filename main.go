@@ -50,7 +50,7 @@ func HandleServerError(c *gin.Context, s int, m string) {
 }
 
 func main() {
-	fmt.Println("🚀 Pironman5-Go v0.12.0")
+	fmt.Println("🚀 Pironman5-Go v0.12.1")
 
 	// == инициализируем дефолтный конфиг, если его нет ==
 	cfg, err := config.LoadConfig()
@@ -59,7 +59,7 @@ func main() {
 		return
 	}
 
-	// == апускаем контроль вентиляторов в фоне ==
+	// == запускаем контроль вентиляторов в фоне ==
 	go fan.StartFanControlLoop(cfg.FanUpdateInterval)
 
 	router := gin.Default()

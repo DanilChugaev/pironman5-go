@@ -5,6 +5,7 @@ import (
 	"log"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/DanilChugaev/pironman5-go/pkg/config"
@@ -15,59 +16,62 @@ const (
 	GpioFanPin int = 6
 )
 
-const pythonScript = "scripts/rpi_fan/set_fan_pwm.py"
+const pythonScript = "scripts/rpi_fan/set_fan.py"
 
-// StartFanControlLoop запускает горутину с тикером
+// StartFanControlLoop — горутина с тикером
 func StartFanControlLoop(fanUpdateInterval uint64) {
-	ticker := time.NewTicker(time.Duration(fanUpdateInterval) * time.Second) // по умолчанию, будет браться из конфига
+	ticker := time.NewTicker(time.Duration(fanUpdateInterval) * time.Second)
 	defer ticker.Stop()
 
-	log.Println("Система управления вентиляторами запущена! (PWM)")
+	log.Println("🚀 Fan control loop started (on/off via GPIO6)")
 
 	for range ticker.C {
-		// Перезагружаем конфиг каждый тик — чтобы изменения через PUT /api/config сразу применялись
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			log.Printf("fan: failed to load config: %v", err)
 			continue
 		}
 
-		// Обновляем интервал тикера "на лету"
+		// Обновляем интервал на лету
 		ticker.Reset(time.Duration(cfg.FanUpdateInterval) * time.Second)
 
-		temp := status.GetCpuTemperature()
+		temp := status.GetStatus().CPUTemperature
 
 		mainThreshold := cfg.FanMainStartTemp
 		addThreshold := cfg.FanAddStartTemp
 
-		var duty float64
-		switch {
-		case temp >= addThreshold:
-			duty = 100.0 // полная мощность — оба дополнительных вентилятора
-		case temp >= mainThreshold:
-			duty = 50.0 // частичная мощность — "основной режим"
-		default:
-			duty = 0.0 // выключено
+		// Простая логика (можно потом добавить hysteresis)
+		on := false
+		if temp >= addThreshold || temp >= mainThreshold {
+			on = true
 		}
 
-		// Вызываем Python (PWM)
-		if err := setFanPWM(GpioFanPin, duty); err != nil {
-			log.Printf("fan: set PWM failed: %v", err)
+		if err := setFan(GpioFanPin, on); err != nil {
+			log.Printf("fan: set failed: %v", err)
 		} else {
-			log.Printf("Fan GPIO%d | Temp %.1f°C | Duty %.0f%% (main:%.0f add:%.0f)", GpioFanPin, temp, duty, mainThreshold, addThreshold)
+			statusStr := "ON"
+			if !on {
+				statusStr = "OFF"
+			}
+			log.Printf("Fan GPIO%d | Temp %.1f°C | %s (main:%.0f add:%.0f)", GpioFanPin, temp, statusStr, mainThreshold, addThreshold)
 		}
 	}
 }
 
-// setFanPWM вызывает Python-скрипт
-func setFanPWM(pin int, dutyPercent float64) error {
-	scriptPath, err := filepath.Abs(pythonScript)
-	if err != nil {
-		return err
+func setFan(pin int, on bool) error {
+	scriptPath, _ := filepath.Abs(pythonScript) // если не сработает — замени на полный путь
+
+	state := 0
+	if on {
+		state = 1
 	}
 
-	cmd := exec.Command("python3", scriptPath, fmt.Sprintf("%d", pin), fmt.Sprintf("%.0f", dutyPercent))
+	cmd := exec.Command("python3", scriptPath, fmt.Sprintf("%d", pin), fmt.Sprintf("%d", state))
 	output, err := cmd.CombinedOutput()
+
+	// ВАЖНО: всегда логируем вывод Python, даже при успехе
+	log.Printf("Fan python output: %s", strings.TrimSpace(string(output)))
+
 	if err != nil {
 		return fmt.Errorf("python error: %v | output: %s", err, output)
 	}
