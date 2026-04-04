@@ -10,10 +10,11 @@ pin = int(sys.argv[1])
 state = int(sys.argv[2])  # 1 = ON, 0 = OFF
 
 try:
-    fan = DigitalOutputDevice(pin, active_high=True, initial_value=False)
+    # Пробуем ОБРАТНУЮ полярность (самое вероятное решение)
+    fan = DigitalOutputDevice(pin, active_high=False, initial_value=False)
     fan.value = bool(state)
     status = "ON" if state else "OFF"
-    print(f"OK: Fan GPIO{pin} → {status}")
+    print(f"OK: Fan GPIO{pin} → {status} (active_high=False)")
 except Exception as e:
     print(f"ERROR: {e}")
     sys.exit(1)
