@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 import sys
-from gpiozero import DigitalOutputDevice
+import lgpio
 
 if len(sys.argv) != 3:
-    print("Usage: python set_fan.py <gpio_pin> <on_or_off>  # on=1, off=0")
+    print("Usage: python set_fan.py <gpio_pin> <0|1>")
     sys.exit(1)
 
 pin = int(sys.argv[1])
-state = int(sys.argv[2])  # 1 = ON, 0 = OFF
+state = int(sys.argv[2])
 
 try:
-    # Пробуем ОБРАТНУЮ полярность (самое вероятное решение)
-    fan = DigitalOutputDevice(pin, active_high=False, initial_value=False)
-    fan.value = bool(state)
+    h = lgpio.gpiochip_open(4)          # ← на RPi 5 основной чип = 4
+    lgpio.gpio_claim_output(h, pin)
+    lgpio.gpio_write(h, pin, state)
     status = "ON" if state else "OFF"
-    print(f"OK: Fan GPIO{pin} → {status} (active_high=False)")
+    print(f"OK: Fan GPIO{pin} → {status} (lgpio, chip=4)")
+    # Не закрываем handle здесь — состояние сохранится
 except Exception as e:
     print(f"ERROR: {e}")
     sys.exit(1)
