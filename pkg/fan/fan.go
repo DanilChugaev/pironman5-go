@@ -14,20 +14,8 @@ import (
 
 const (
 	GpioFanPin int = 6
+	Gist       int = 5
 )
-
-// FAN_LEVELS — как в официальном SunFounder
-var FAN_LEVELS = []struct {
-	Name    string
-	Low     float64
-	High    float64
-	Percent int
-}{
-	{"OFF", -200, 45, 0},
-	{"LOW", 35, 55, 40},
-	{"MEDIUM", 45, 65, 60},
-	{"HIGH", 55, 100, 100},
-}
 
 const pythonScript = "scripts/rpi_fan/set_fan.py"
 
@@ -50,13 +38,14 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		ticker.Reset(time.Duration(cfg.FanUpdateInterval) * time.Second)
 
 		temp := status.GetCpuTemperature()
+		fan_levels := cfg.FanLevels
 
 		// === Логика уровней с гистерезисом (как в официальном fan_service.py) ===
 		changed := false
-		if temp < FAN_LEVELS[level].Low {
+		if temp < fan_levels[level].High-float64(Gist) {
 			level--
 			changed = true
-		} else if temp > FAN_LEVELS[level].High {
+		} else if temp > fan_levels[level].High {
 			level++
 			changed = true
 		}
@@ -65,8 +54,8 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		if level < 0 {
 			level = 0
 		}
-		if level >= len(FAN_LEVELS) {
-			level = len(FAN_LEVELS) - 1
+		if level >= len(fan_levels) {
+			level = len(fan_levels) - 1
 		}
 
 		// Включаем gpio_fan, если уровень >= gpio_fan_mode
@@ -81,10 +70,10 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 			}
 			if changed {
 				log.Printf("Fan GPIO%d | Temp %.1f°C → %s (level %d: %s, power %d%%)",
-					GpioFanPin, temp, statusStr, level, FAN_LEVELS[level].Name, FAN_LEVELS[level].Percent)
+					GpioFanPin, temp, statusStr, level, fan_levels[level].Name, fan_levels[level].High)
 			} else {
 				log.Printf("Fan GPIO%d | Temp %.1f°C | %s (level %d: %s)",
-					GpioFanPin, temp, statusStr, level, FAN_LEVELS[level].Name)
+					GpioFanPin, temp, statusStr, level, fan_levels[level].Name)
 			}
 		}
 	}
