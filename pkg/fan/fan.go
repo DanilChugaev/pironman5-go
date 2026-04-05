@@ -14,7 +14,6 @@ import (
 
 const (
 	GpioFanPin int = 6
-	Gist       int = 5
 )
 
 const pythonScript = "scripts/rpi_fan/set_fan.py"
@@ -42,7 +41,7 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 
 		// === Логика уровней с гистерезисом (как в официальном fan_service.py) ===
 		changed := false
-		if temp < fan_levels[level].High-float64(Gist) {
+		if temp < fan_levels[level].Low {
 			level--
 			changed = true
 		} else if temp > fan_levels[level].High {
@@ -70,7 +69,7 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 			}
 			if changed {
 				log.Printf("Fan GPIO%d | Temp %.1f°C → %s (level %d: %s, power %d%%)",
-					GpioFanPin, temp, statusStr, level, fan_levels[level].Name, fan_levels[level].High)
+					GpioFanPin, temp, statusStr, level, fan_levels[level].Name, int(fan_levels[level].High))
 			} else {
 				log.Printf("Fan GPIO%d | Temp %.1f°C | %s (level %d: %s)",
 					GpioFanPin, temp, statusStr, level, fan_levels[level].Name)

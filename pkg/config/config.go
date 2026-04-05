@@ -11,6 +11,7 @@ type RPIGpioFanLed string
 
 type FanLevel struct {
 	Name string
+	Low  float64
 	High float64
 }
 
@@ -98,10 +99,10 @@ func getDefaultValue() RPIConfigDTO {
 		VibrationSwitchPullUp: false,
 		FanUpdateInterval:     5,
 		FanLevels: []FanLevel{
-			{"OFF", 35.0},
-			{"LOW", 45.0},
-			{"MEDIUM", 65.0},
-			{"HIGH", 100.0},
+			{"OFF", -200, 55.0},
+			{"LOW", 45.0, 65.0},
+			{"MEDIUM", 55.0, 75.0},
+			{"HIGH", 65.0, 100.0},
 		},
 	}
 }
