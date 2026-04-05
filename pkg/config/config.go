@@ -7,8 +7,9 @@ import (
 )
 
 type RPIRgbStyle string
-type RPIGpioFanMode uint64
 type RPIGpioFanLed string
+
+// type RPIGpioFanMode int
 
 const (
 	Solid          RPIRgbStyle = "solid"
@@ -21,11 +22,11 @@ const (
 )
 
 const (
-	AlwaysOn    RPIGpioFanMode = iota
-	Performance RPIGpioFanMode = iota
-	Cool        RPIGpioFanMode = iota
-	Balance     RPIGpioFanMode = iota
-	Silent      RPIGpioFanMode = iota
+	AlwaysOn    int = iota
+	Performance int = iota
+	Cool        int = iota
+	Balance     int = iota
+	Silent      int = iota
 )
 
 const (
@@ -35,42 +36,42 @@ const (
 )
 
 type RPIConfigDTO struct {
-	RgbColor              string         `json:"rgb_color"`                // hex format (#0a1aff)
-	RgbBrightness         uint64         `json:"rgb_brightness"`           // range 0-100
-	RgbStyle              RPIRgbStyle    `json:"rgb_style"`                // "solid" | "breathing" | "flow" | "flow_reverse" | "rainbow" | "rainbow_reverse" | "hue_cycle"
-	RgbSpeed              uint64         `json:"rgb_speed"`                // range 0-100
-	RgbEnabled            bool           `json:"rgb_enabled"`              // true | false
-	OledEnabled           bool           `json:"oled_enabled"`             // true | false
-	OledDisk              string         `json:"oled_disk"`                // "total" | get_disks()
-	OledNetworkInterface  string         `json:"oled_network_interface"`   // "all" | get_ips().keys()
-	OledSleepTimeout      uint64         `json:"oled_sleep_timeout"`       // range 0-18446744073709551615
-	GpioFanMode           RPIGpioFanMode `json:"gpio_fan_mode"`            // range 0-4
-	GpioFanLed            RPIGpioFanLed  `json:"gpio_fan_led"`             // "on" | "off" | "follow"
-	VibrationSwitchPullUp bool           `json:"vibration_switch_pull_up"` // true | false
-	FanUpdateInterval     uint64         `json:"fan_update_interval"`      // секунды, default 5
-	FanMainStartTemp      float64        `json:"fan_main_start_temp"`      // °C, default 50.0
-	FanAddStartTemp       float64        `json:"fan_add_start_temp"`       // °C, default 60.0
+	RgbColor              string        `json:"rgb_color"`                // hex format (#0a1aff)
+	RgbBrightness         uint64        `json:"rgb_brightness"`           // range 0-100
+	RgbStyle              RPIRgbStyle   `json:"rgb_style"`                // "solid" | "breathing" | "flow" | "flow_reverse" | "rainbow" | "rainbow_reverse" | "hue_cycle"
+	RgbSpeed              uint64        `json:"rgb_speed"`                // range 0-100
+	RgbEnabled            bool          `json:"rgb_enabled"`              // true | false
+	OledEnabled           bool          `json:"oled_enabled"`             // true | false
+	OledDisk              string        `json:"oled_disk"`                // "total" | get_disks()
+	OledNetworkInterface  string        `json:"oled_network_interface"`   // "all" | get_ips().keys()
+	OledSleepTimeout      uint64        `json:"oled_sleep_timeout"`       // range 0-18446744073709551615
+	GpioFanMode           int           `json:"gpio_fan_mode"`            // range 0-4
+	GpioFanLed            RPIGpioFanLed `json:"gpio_fan_led"`             // "on" | "off" | "follow"
+	VibrationSwitchPullUp bool          `json:"vibration_switch_pull_up"` // true | false
+	FanUpdateInterval     uint64        `json:"fan_update_interval"`      // секунды, default 5
+	FanMainStartTemp      float64       `json:"fan_main_start_temp"`      // °C, default 50.0
+	FanAddStartTemp       float64       `json:"fan_add_start_temp"`       // °C, default 60.0
 }
 
 // --- Структура для частичного обновления ---
 // Поля являются указателями
 // Если поле nil, оно не обновляется
 type RPIConfigUpdate struct {
-	RgbColor              *string         `json:"rgb_color,omitempty"`
-	RgbBrightness         *uint64         `json:"rgb_brightness,omitempty"`
-	RgbStyle              *RPIRgbStyle    `json:"rgb_style,omitempty"`
-	RgbSpeed              *uint64         `json:"rgb_speed,omitempty"`
-	RgbEnabled            *bool           `json:"rgb_enabled,omitempty"`
-	OledEnabled           *bool           `json:"oled_enabled,omitempty"`
-	OledDisk              *string         `json:"oled_disk,omitempty"`
-	OledNetworkInterface  *string         `json:"oled_network_interface,omitempty"`
-	OledSleepTimeout      *uint64         `json:"oled_sleep_timeout,omitempty"`
-	GpioFanMode           *RPIGpioFanMode `json:"gpio_fan_mode,omitempty"`
-	GpioFanLed            *RPIGpioFanLed  `json:"gpio_fan_led,omitempty"`
-	VibrationSwitchPullUp *bool           `json:"vibration_switch_pull_up,omitempty"`
-	FanUpdateInterval     *uint64         `json:"fan_update_interval,omitempty"`
-	FanMainStartTemp      *float64        `json:"fan_main_start_temp,omitempty"`
-	FanAddStartTemp       *float64        `json:"fan_add_start_temp,omitempty"`
+	RgbColor              *string        `json:"rgb_color,omitempty"`
+	RgbBrightness         *uint64        `json:"rgb_brightness,omitempty"`
+	RgbStyle              *RPIRgbStyle   `json:"rgb_style,omitempty"`
+	RgbSpeed              *uint64        `json:"rgb_speed,omitempty"`
+	RgbEnabled            *bool          `json:"rgb_enabled,omitempty"`
+	OledEnabled           *bool          `json:"oled_enabled,omitempty"`
+	OledDisk              *string        `json:"oled_disk,omitempty"`
+	OledNetworkInterface  *string        `json:"oled_network_interface,omitempty"`
+	OledSleepTimeout      *uint64        `json:"oled_sleep_timeout,omitempty"`
+	GpioFanMode           *int           `json:"gpio_fan_mode,omitempty"`
+	GpioFanLed            *RPIGpioFanLed `json:"gpio_fan_led,omitempty"`
+	VibrationSwitchPullUp *bool          `json:"vibration_switch_pull_up,omitempty"`
+	FanUpdateInterval     *uint64        `json:"fan_update_interval,omitempty"`
+	FanMainStartTemp      *float64       `json:"fan_main_start_temp,omitempty"`
+	FanAddStartTemp       *float64       `json:"fan_add_start_temp,omitempty"`
 }
 
 const CONFIG_PATH = "pkg/config/config.json"
