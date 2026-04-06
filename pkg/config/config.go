@@ -98,7 +98,7 @@ func getDefaultValue() RPIConfigDTO {
 		OledDisk:              "total",
 		OledNetworkInterface:  "all",
 		OledSleepTimeout:      10,
-		FanGpioMode:           AlwaysOn,
+		FanGpioMode:           Cool,
 		FanGpioLed:            Follow,
 		VibrationSwitchPullUp: false,
 		FanUpdateInterval:     5,
