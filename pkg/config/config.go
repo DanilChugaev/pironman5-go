@@ -51,7 +51,7 @@ type RPIConfigDTO struct {
 	FanGpioLed            string     `json:"fan_gpio_led"`             // "on" | "off" | "follow"
 	FanUpdateInterval     uint64     `json:"fan_update_interval"`      // секунды, default 5
 	FanLevels             []FanLevel `json:"fan_levels"`               // уровни работы fan вентиляторов - "OFF" | "LOW" | "MEDIUM" | "HIGH"
-	FanTowerEnabled       bool       `json:"fan_tower_enabled"`        // true | false
+	FanEnabled            bool       `json:"fan_enabled"`              // true | false
 }
 
 // --- Структура для частичного обновления ---
@@ -72,7 +72,7 @@ type RPIConfigUpdate struct {
 	FanGpioLed            *string     `json:"fan_gpio_led,omitempty"`
 	FanUpdateInterval     *uint64     `json:"fan_update_interval,omitempty"`
 	FanLevels             *[]FanLevel `json:"fan_levels,omitempty"`
-	FanTowerEnabled       *bool       `json:"fan_tower_enabled,omitempty"`
+	FanEnabled            *bool       `json:"fan_enabled,omitempty"`
 }
 
 const CONFIG_PATH = "pkg/config/config.json"
@@ -101,7 +101,7 @@ func getDefaultValue() RPIConfigDTO {
 			{"MEDIUM", 45.0, 65.0},
 			{"HIGH", 55.0, 100.0},
 		},
-		FanTowerEnabled: false,
+		FanEnabled: false,
 	}
 }
 
@@ -216,8 +216,8 @@ func UpdateConfig(updates *RPIConfigUpdate) (*RPIConfigDTO, error) {
 	}
 
 	// == основной tower вентилятор ==
-	if updates.FanTowerEnabled != nil {
-		currentCfg.FanTowerEnabled = *updates.FanTowerEnabled
+	if updates.FanEnabled != nil {
+		currentCfg.FanEnabled = *updates.FanEnabled
 	}
 
 	// 3. Записываем обновленный конфиг в файл

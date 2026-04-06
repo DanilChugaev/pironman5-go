@@ -31,7 +31,6 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 	log.Println("🚀 Fan + LED + Tower PWM control loop started")
 
 	level := 0 // уровень для GPIO-вентиляторов
-	// towerEnabled := false
 
 	for range ticker.C {
 		cfg, err := config.LoadConfig()
@@ -78,10 +77,11 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		}
 
 		// === 3. Tower-фан ===
-		fan_tower_enabled := cfg.FanTowerEnabled
+		// Синхронизирован с работой gpio_fan
+		fan_tower_enabled := cfg.FanEnabled
 		if fan_tower_enabled != fanOn {
 			updatedConfig, err := config.UpdateConfig(&config.RPIConfigUpdate{
-				FanTowerEnabled: &fanOn,
+				FanEnabled: &fanOn,
 			})
 			if err != nil {
 				log.Printf("Error updated config when change fan state: %v", err)
@@ -89,7 +89,7 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 
 			pwm := 0
 
-			if updatedConfig.FanTowerEnabled == true {
+			if updatedConfig.FanEnabled == true {
 				pwm = 1
 			}
 
