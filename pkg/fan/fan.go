@@ -13,20 +13,25 @@ import (
 )
 
 const (
-	GpioFanPin    int = 6
-	GpioFanLedPin int = 5
+	FanGpioPin    int = 6
+	FanGpioLedPin int = 5
 )
 
-const pythonScript = "scripts/rpi_fan/set_fan.py"
+const (
+	pythonFanScript   = "scripts/rpi_fan/set_fan.py"
+	pythonTowerScript = "scripts/rpi_fan/set_tower_fan.py"
+	towerHysteresis   = 5.0 // °C гистерезис для tower-фана
+)
 
 // StartFanControlLoop — горутина с тикером
 func StartFanControlLoop(fanUpdateInterval uint64) {
 	ticker := time.NewTicker(time.Duration(fanUpdateInterval) * time.Second)
 	defer ticker.Stop()
 
-	log.Println("🚀 Fan control loop started (official levels + hysteresis)")
+	log.Println("🚀 Fan + LED + Tower PWM control loop started")
 
-	level := 0 // начальный уровень
+	level := 0    // уровень для GPIO-вентиляторов
+	towerPWM := 0 // 0-4 для tower-фана
 
 	for range ticker.C {
 		cfg, err := config.LoadConfig()
@@ -40,7 +45,7 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		temp := status.GetCpuTemperature()
 		fan_levels := cfg.FanLevels
 
-		// === Логика уровней с гистерезисом (как в официальном fan_service.py) ===
+		// === 1. GPIO-вентиляторы ===
 		if temp < fan_levels[level].Low {
 			level--
 		} else if temp > fan_levels[level].High {
@@ -57,7 +62,7 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		// Включаем gpio_fan, если уровень >= gpio_fan_mode
 		fanOn := level >= cfg.FanGpioMode
 
-		// === LED логика (точно как в официальном коде) ===
+		// === 2. LED вентиляторов ===
 		ledState := 0
 		switch cfg.FanGpioLed {
 		case "follow":
@@ -72,25 +77,42 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 			ledState = 0 // fallback
 		}
 
-		if err := setFanAndLed(GpioFanPin, fanOn, GpioFanLedPin, ledState); err != nil {
-			log.Printf("fan+led: set failed: %v", err)
+		// === 3. Tower-фан (PWM) с отдельной температурой и гистерезисом ===
+		startTemp := cfg.FanTowerStartTemp
+		if temp >= startTemp {
+			// Включаем и повышаем скорость в зависимости от температуры
+			if temp >= startTemp+15 {
+				towerPWM = 4
+			} else if temp >= startTemp+10 {
+				towerPWM = 3
+			} else if temp >= startTemp+5 {
+				towerPWM = 2
+			} else {
+				towerPWM = 1 // минимальная скорость при старте
+			}
+		} else if temp < startTemp-towerHysteresis {
+			towerPWM = 0 // выключаем только с гистерезисом
+		}
+		// (уровень towerPWM сохраняется между тиками — это и есть гистерезис)
+
+		// Применяем всё
+		if err := setFanAndLed(FanGpioPin, fanOn, FanGpioLedPin, ledState); err != nil {
+			log.Printf("fan+led: %v", err)
+		}
+		if err := setTowerFan(towerPWM); err != nil {
+			log.Printf("tower: %v", err)
 		} else {
-			fanStr := "ON"
-			if !fanOn {
-				fanStr = "OFF"
-			}
-			ledStr := "ON"
-			if ledState == 0 {
-				ledStr = "OFF"
-			}
-			log.Printf("Fan GPIO%d=%s | LED GPIO%d=%s | Temp %.1f°C | Level %d (%s)",
-				GpioFanPin, fanStr, GpioFanLedPin, ledStr, temp, level, fan_levels[level].Name)
+			fanStr := map[bool]string{true: "ON", false: "OFF"}[fanOn]
+			ledStr := map[int]string{1: "ON", 0: "OFF"}[ledState]
+			log.Printf("GPIO Fan=%s | LED=%s | Tower PWM=%d | Temp %.1f°C | Level %d (%s) | TowerStart %.0f°C",
+				fanStr, ledStr, towerPWM, temp, level, fan_levels[level].Name, startTemp)
 		}
 	}
 }
 
+// === fan + led ===
 func setFanAndLed(fanPin int, fanOn bool, ledPin int, ledState int) error {
-	scriptPath, _ := filepath.Abs(pythonScript)
+	scriptPath, _ := filepath.Abs(pythonFanScript)
 
 	fanState := 0
 	if fanOn {
@@ -105,6 +127,18 @@ func setFanAndLed(fanPin int, fanOn bool, ledPin int, ledState int) error {
 	output, err := cmd.CombinedOutput()
 	log.Printf("Fan+LED python output: %s", strings.TrimSpace(string(output)))
 
+	if err != nil {
+		return fmt.Errorf("python error: %v | output: %s", err, output)
+	}
+	return nil
+}
+
+// === tower-fan ===
+func setTowerFan(pwm int) error {
+	scriptPath, _ := filepath.Abs(pythonTowerScript)
+	cmd := exec.Command("python3", scriptPath, fmt.Sprintf("%d", pwm))
+	output, err := cmd.CombinedOutput()
+	log.Printf("Tower python output: %s", strings.TrimSpace(string(output)))
 	if err != nil {
 		return fmt.Errorf("python error: %v | output: %s", err, output)
 	}

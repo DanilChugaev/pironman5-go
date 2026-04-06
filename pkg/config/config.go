@@ -51,6 +51,7 @@ type RPIConfigDTO struct {
 	FanGpioLed            string     `json:"fan_gpio_led"`             // "on" | "off" | "follow"
 	FanUpdateInterval     uint64     `json:"fan_update_interval"`      // секунды, default 5
 	FanLevels             []FanLevel `json:"fan_levels"`               // уровни работы fan вентиляторов - "OFF" | "LOW" | "MEDIUM" | "HIGH"
+	FanTowerStartTemp     float64    `json:"fan_tower_start_temp"`     // °C, по умолчанию 50.0
 }
 
 // --- Структура для частичного обновления ---
@@ -71,6 +72,7 @@ type RPIConfigUpdate struct {
 	FanGpioLed            *string     `json:"fan_gpio_led,omitempty"`
 	FanUpdateInterval     *uint64     `json:"fan_update_interval,omitempty"`
 	FanLevels             *[]FanLevel `json:"fan_levels,omitempty"`
+	FanTowerStartTemp     *float64    `json:"fan_tower_start_temp,omitempty"`
 }
 
 const CONFIG_PATH = "pkg/config/config.json"
@@ -99,6 +101,7 @@ func getDefaultValue() RPIConfigDTO {
 			{"MEDIUM", 55.0, 75.0},
 			{"HIGH", 65.0, 100.0},
 		},
+		FanTowerStartTemp: 50.0,
 	}
 }
 
