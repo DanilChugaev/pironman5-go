@@ -136,7 +136,7 @@ func setFanAndLed(fanPin int, fanOn bool, ledPin int, ledState int) error {
 // === tower-fan ===
 func setTowerFan(pwm int) error {
 	scriptPath, _ := filepath.Abs(pythonTowerScript)
-	cmd := exec.Command("python3", scriptPath, fmt.Sprintf("%d", pwm))
+	cmd := exec.Command("sudo", "-n", "python3", scriptPath, fmt.Sprintf("%d", pwm))
 	output, err := cmd.CombinedOutput()
 	log.Printf("Tower python output: %s", strings.TrimSpace(string(output)))
 	if err != nil {

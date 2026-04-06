@@ -15,5 +15,5 @@ try:
         f.write(str(pwm))
     print(f"OK: Tower fan PWM set to {pwm}")
 except Exception as e:
-    print(f"ERROR: {e} (возможно, нужен root или файл не существует)")
+    print(f"ERROR: {e}")
     sys.exit(1)
