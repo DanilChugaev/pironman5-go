@@ -5,20 +5,6 @@ import subprocess
 import os
 import json
 
-def get_cpu_temperature():
-    try:
-        result = run_command('cat /sys/class/thermal/thermal_zone0/temp')
-        return float(result) / 1000
-    except:
-        return None
-
-def get_gpu_temperature():
-    try:
-        result = run_command('vcgencmd measure_temp')
-        return float(result.split('=')[1].split("'")[0])
-    except:
-        return None
-
 def get_cpu_percent(percpu=False):
     from psutil import cpu_percent
     return cpu_percent(percpu=percpu)

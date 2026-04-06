@@ -3,6 +3,7 @@ package status
 import (
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -10,7 +11,6 @@ import (
 
 type RPIStatusDTO struct {
 	CPUTemperature        float64 `json:"cpu_temperature"`
-	GPUTemperature        float64 `json:"gpu_temperature"`
 	CpuPercent            float64 `json:"cpu_percent"`
 	CpuPercentPerCPU      any     `json:"cpu_percent_per_cpu"`
 	CpuFrequency          string  `json:"cpu_frequency"`
@@ -31,7 +31,6 @@ type RPIStatusDTO struct {
 func GetStatus() RPIStatusDTO {
 	return RPIStatusDTO{
 		CPUTemperature:        GetCpuTemperature(),
-		GPUTemperature:        getGpuTemperature(),
 		CpuPercent:            getCpuPercent(),
 		CpuPercentPerCPU:      getCpuPercentPerCpu(),
 		CpuFrequency:          getCpuFrequency(),
@@ -68,7 +67,7 @@ func runPythonCommand(method string) string {
 }
 
 func replaceIndent(str string) string {
-	return strings.ReplaceAll(str, "\n", "")
+	return strings.TrimSpace(str)
 }
 
 func strToUint(str string) uint64 {
@@ -96,11 +95,14 @@ func strToFloat(str string) float64 {
 // == todo: заменить реализацию методов на чистый GO ==
 
 func GetCpuTemperature() float64 {
-	return strToFloat(runPythonCommand("get_cpu_temperature"))
-}
+	data, err := os.ReadFile("/sys/class/thermal/thermal_zone0/temp")
+	if err != nil {
+		return 0.0
+	}
 
-func getGpuTemperature() float64 {
-	return strToFloat(runPythonCommand("get_gpu_temperature"))
+	temp := strToFloat(string(data))
+
+	return temp / 1000.0 // Convert to Celsius
 }
 
 func getCpuPercent() float64 {
