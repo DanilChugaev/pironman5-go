@@ -215,6 +215,11 @@ func UpdateConfig(updates *RPIConfigUpdate) (*RPIConfigDTO, error) {
 		currentCfg.FanLevels = *updates.FanLevels
 	}
 
+	// == основной tower вентилятор ==
+	if updates.FanTowerStartTemp != nil {
+		currentCfg.FanTowerStartTemp = *updates.FanTowerStartTemp
+	}
+
 	// 3. Записываем обновленный конфиг в файл
 	if err := writeConfigFile(CONFIG_PATH, currentCfg); err != nil {
 		return nil, fmt.Errorf("Ошибка обновления конфига: %w", err)
