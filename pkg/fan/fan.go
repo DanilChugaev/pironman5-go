@@ -20,7 +20,6 @@ const (
 const (
 	pythonFanScript   = "scripts/rpi_fan/set_fan.py"
 	pythonTowerScript = "scripts/rpi_fan/set_tower_fan.py"
-	towerHysteresis   = 5.0 // °C гистерезис для tower-фана
 )
 
 // StartFanControlLoop — горутина с тикером
@@ -30,8 +29,8 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 
 	log.Println("🚀 Fan + LED + Tower PWM control loop started")
 
-	level := 0    // уровень для GPIO-вентиляторов
-	towerPWM := 0 // 0-4 для tower-фана
+	level := 0 // уровень для GPIO-вентиляторов
+	towerEnabled := false
 
 	for range ticker.C {
 		cfg, err := config.LoadConfig()
@@ -77,35 +76,31 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 			ledState = 0 // fallback
 		}
 
-		// === 3. Tower-фан (PWM) с отдельной температурой и гистерезисом ===
-		startTemp := cfg.FanTowerStartTemp
-		if temp >= startTemp {
-			// Включаем и повышаем скорость в зависимости от температуры
-			if temp >= startTemp+15 {
-				towerPWM = 4
-			} else if temp >= startTemp+10 {
-				towerPWM = 3
-			} else if temp >= startTemp+5 {
-				towerPWM = 2
-			} else {
-				towerPWM = 1 // минимальная скорость при старте
-			}
-		} else if temp < startTemp-towerHysteresis {
-			towerPWM = 0 // выключаем только с гистерезисом
-		}
-		// (уровень towerPWM сохраняется между тиками — это и есть гистерезис)
+		// === 3. Tower-фан ===
+		fan_tower_enabled := cfg.FanTowerEnabled
+		if fan_tower_enabled != towerEnabled {
+			pwm := 0
 
-		// Применяем всё
+			if fan_tower_enabled == true {
+				pwm = 1
+			}
+
+			if err := setTowerFan(pwm); err != nil {
+				log.Printf("tower: %v", err)
+			} else {
+				log.Printf("Tower power changed")
+			}
+		}
+
+		log.Printf("Tower enabled=%b | Temp %.1f°C", fan_tower_enabled, temp)
+
 		if err := setFanAndLed(FanGpioPin, fanOn, FanGpioLedPin, ledState); err != nil {
 			log.Printf("fan+led: %v", err)
-		}
-		if err := setTowerFan(towerPWM); err != nil {
-			log.Printf("tower: %v", err)
 		} else {
 			fanStr := map[bool]string{true: "ON", false: "OFF"}[fanOn]
 			ledStr := map[int]string{1: "ON", 0: "OFF"}[ledState]
-			log.Printf("GPIO Fan=%s | LED=%s | Tower PWM=%d | Temp %.1f°C | Level %d (%s) | TowerStart %.0f°C",
-				fanStr, ledStr, towerPWM, temp, level, fan_levels[level].Name, startTemp)
+			log.Printf("GPIO Fan=%s | LED=%s | Temp %.1f°C | Level %d (%s)",
+				fanStr, ledStr, temp, level, fan_levels[level].Name)
 		}
 	}
 }
