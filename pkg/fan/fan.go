@@ -20,6 +20,7 @@ const (
 const (
 	pythonFanScript   = "scripts/rpi_fan/set_fan.py"
 	pythonTowerScript = "scripts/rpi_fan/set_tower_fan.py"
+	towerHysteresis   = 5.0 // °C гистерезис для tower-фана
 )
 
 // StartFanControlLoop — горутина с тикером
@@ -29,8 +30,8 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 
 	log.Println("🚀 Fan + LED + Tower PWM control loop started")
 
-	gpioLevel := 0  // уровень для GPIO-вентиляторов
-	towerLevel := 0 // 0-4 для tower-фана
+	level := 0    // уровень для GPIO-вентиляторов
+	towerPWM := 0 // 0-4 для tower-фана
 
 	for range ticker.C {
 		cfg, err := config.LoadConfig()
@@ -43,24 +44,23 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 
 		temp := status.GetCpuTemperature()
 		fan_levels := cfg.FanLevels
-		fan_tower_levels := cfg.FanTowerLevels
 
 		// === 1. GPIO-вентиляторы ===
-		if temp < fan_levels[gpioLevel].Low {
-			gpioLevel--
-		} else if temp > fan_levels[gpioLevel].High {
-			gpioLevel++
+		if temp < fan_levels[level].Low {
+			level--
+		} else if temp > fan_levels[level].High {
+			level++
 		}
 		// Ограничиваем уровень
-		if gpioLevel < 0 {
-			gpioLevel = 0
+		if level < 0 {
+			level = 0
 		}
-		if gpioLevel >= len(fan_levels) {
-			gpioLevel = len(fan_levels) - 1
+		if level >= len(fan_levels) {
+			level = len(fan_levels) - 1
 		}
 
 		// Включаем gpio_fan, если уровень >= gpio_fan_mode
-		fanOn := gpioLevel >= cfg.FanGpioMode
+		fanOn := level >= cfg.FanGpioMode
 
 		// === 2. LED вентиляторов ===
 		ledState := 0
@@ -78,33 +78,34 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		}
 
 		// === 3. Tower-фан (PWM) с отдельной температурой и гистерезисом ===
-		if temp < fan_tower_levels[towerLevel].Low {
-			towerLevel--
-		} else if temp > fan_tower_levels[towerLevel].High {
-			towerLevel++
+		startTemp := cfg.FanTowerStartTemp
+		if temp >= startTemp {
+			// Включаем и повышаем скорость в зависимости от температуры
+			if temp >= startTemp+15 {
+				towerPWM = 4
+			} else if temp >= startTemp+10 {
+				towerPWM = 3
+			} else if temp >= startTemp+5 {
+				towerPWM = 2
+			} else {
+				towerPWM = 1 // минимальная скорость при старте
+			}
+		} else if temp < startTemp-towerHysteresis {
+			towerPWM = 0 // выключаем только с гистерезисом
 		}
-		if towerLevel < 0 {
-			towerLevel = 0
-		}
-		if towerLevel >= len(fan_tower_levels) {
-			towerLevel = len(fan_tower_levels) - 1
-		}
+		// (уровень towerPWM сохраняется между тиками — это и есть гистерезис)
 
 		// Применяем всё
-		// Применяем
 		if err := setFanAndLed(FanGpioPin, fanOn, FanGpioLedPin, ledState); err != nil {
 			log.Printf("fan+led: %v", err)
 		}
-		if err := setTowerFan(fan_tower_levels[towerLevel].PWM); err != nil {
+		if err := setTowerFan(towerPWM); err != nil {
 			log.Printf("tower: %v", err)
 		} else {
 			fanStr := map[bool]string{true: "ON", false: "OFF"}[fanOn]
 			ledStr := map[int]string{1: "ON", 0: "OFF"}[ledState]
-			log.Printf("GPIO Fan=%s | LED=%s | Tower %s (PWM=%d) | Temp %.1f°C",
-				fanStr, ledStr,
-				fan_tower_levels[towerLevel].Name,
-				fan_tower_levels[towerLevel].PWM,
-				temp)
+			log.Printf("GPIO Fan=%s | LED=%s | Tower PWM=%d | Temp %.1f°C | Level %d (%s) | TowerStart %.0f°C",
+				fanStr, ledStr, towerPWM, temp, level, fan_levels[level].Name, startTemp)
 		}
 	}
 }

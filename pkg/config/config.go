@@ -12,13 +12,6 @@ type FanLevel struct {
 	High float64 `json:"high"`
 }
 
-type FanTowerLevel struct {
-	Name string  `json:"name"`
-	Low  float64 `json:"low"`
-	High float64 `json:"high"`
-	PWM  int     `json:"pwm"`
-}
-
 const (
 	Solid          string = "solid"
 	Breathing      string = "breathing"
@@ -44,42 +37,42 @@ const (
 )
 
 type RPIConfigDTO struct {
-	RgbColor              string          `json:"rgb_color"`                // hex format (#0a1aff)
-	RgbBrightness         uint64          `json:"rgb_brightness"`           // range 0-100
-	RgbStyle              string          `json:"rgb_style"`                // "solid" | "breathing" | "flow" | "flow_reverse" | "rainbow" | "rainbow_reverse" | "hue_cycle"
-	RgbSpeed              uint64          `json:"rgb_speed"`                // range 0-100
-	RgbEnabled            bool            `json:"rgb_enabled"`              // true | false
-	OledEnabled           bool            `json:"oled_enabled"`             // true | false
-	OledDisk              string          `json:"oled_disk"`                // "total" | get_disks()
-	OledNetworkInterface  string          `json:"oled_network_interface"`   // "all" | get_ips().keys()
-	OledSleepTimeout      uint64          `json:"oled_sleep_timeout"`       // range 0-18446744073709551615
-	VibrationSwitchPullUp bool            `json:"vibration_switch_pull_up"` // true | false
-	FanGpioMode           int             `json:"fan_gpio_mode"`            // range 0-4
-	FanGpioLed            string          `json:"fan_gpio_led"`             // "on" | "off" | "follow"
-	FanUpdateInterval     uint64          `json:"fan_update_interval"`      // секунды, default 5
-	FanLevels             []FanLevel      `json:"fan_levels"`               // уровни работы fan вентиляторов - "OFF" | "LOW" | "MEDIUM" | "HIGH"
-	FanTowerLevels        []FanTowerLevel `json:"fan_tower_levels"`         // уровни работы tower fan вентилятора
+	RgbColor              string     `json:"rgb_color"`                // hex format (#0a1aff)
+	RgbBrightness         uint64     `json:"rgb_brightness"`           // range 0-100
+	RgbStyle              string     `json:"rgb_style"`                // "solid" | "breathing" | "flow" | "flow_reverse" | "rainbow" | "rainbow_reverse" | "hue_cycle"
+	RgbSpeed              uint64     `json:"rgb_speed"`                // range 0-100
+	RgbEnabled            bool       `json:"rgb_enabled"`              // true | false
+	OledEnabled           bool       `json:"oled_enabled"`             // true | false
+	OledDisk              string     `json:"oled_disk"`                // "total" | get_disks()
+	OledNetworkInterface  string     `json:"oled_network_interface"`   // "all" | get_ips().keys()
+	OledSleepTimeout      uint64     `json:"oled_sleep_timeout"`       // range 0-18446744073709551615
+	VibrationSwitchPullUp bool       `json:"vibration_switch_pull_up"` // true | false
+	FanGpioMode           int        `json:"fan_gpio_mode"`            // range 0-4
+	FanGpioLed            string     `json:"fan_gpio_led"`             // "on" | "off" | "follow"
+	FanUpdateInterval     uint64     `json:"fan_update_interval"`      // секунды, default 5
+	FanLevels             []FanLevel `json:"fan_levels"`               // уровни работы fan вентиляторов - "OFF" | "LOW" | "MEDIUM" | "HIGH"
+	FanTowerStartTemp     float64    `json:"fan_tower_start_temp"`     // °C, по умолчанию 50.0
 }
 
 // --- Структура для частичного обновления ---
 // Поля являются указателями
 // Если поле nil, оно не обновляется
 type RPIConfigUpdate struct {
-	RgbColor              *string          `json:"rgb_color,omitempty"`
-	RgbBrightness         *uint64          `json:"rgb_brightness,omitempty"`
-	RgbStyle              *string          `json:"rgb_style,omitempty"`
-	RgbSpeed              *uint64          `json:"rgb_speed,omitempty"`
-	RgbEnabled            *bool            `json:"rgb_enabled,omitempty"`
-	OledEnabled           *bool            `json:"oled_enabled,omitempty"`
-	OledDisk              *string          `json:"oled_disk,omitempty"`
-	OledNetworkInterface  *string          `json:"oled_network_interface,omitempty"`
-	OledSleepTimeout      *uint64          `json:"oled_sleep_timeout,omitempty"`
-	VibrationSwitchPullUp *bool            `json:"vibration_switch_pull_up,omitempty"`
-	FanGpioMode           *int             `json:"fan_gpio_mode,omitempty"`
-	FanGpioLed            *string          `json:"fan_gpio_led,omitempty"`
-	FanUpdateInterval     *uint64          `json:"fan_update_interval,omitempty"`
-	FanLevels             *[]FanLevel      `json:"fan_levels,omitempty"`
-	FanTowerLevels        *[]FanTowerLevel `json:"fan_tower_levels,omitempty"`
+	RgbColor              *string     `json:"rgb_color,omitempty"`
+	RgbBrightness         *uint64     `json:"rgb_brightness,omitempty"`
+	RgbStyle              *string     `json:"rgb_style,omitempty"`
+	RgbSpeed              *uint64     `json:"rgb_speed,omitempty"`
+	RgbEnabled            *bool       `json:"rgb_enabled,omitempty"`
+	OledEnabled           *bool       `json:"oled_enabled,omitempty"`
+	OledDisk              *string     `json:"oled_disk,omitempty"`
+	OledNetworkInterface  *string     `json:"oled_network_interface,omitempty"`
+	OledSleepTimeout      *uint64     `json:"oled_sleep_timeout,omitempty"`
+	VibrationSwitchPullUp *bool       `json:"vibration_switch_pull_up,omitempty"`
+	FanGpioMode           *int        `json:"fan_gpio_mode,omitempty"`
+	FanGpioLed            *string     `json:"fan_gpio_led,omitempty"`
+	FanUpdateInterval     *uint64     `json:"fan_update_interval,omitempty"`
+	FanLevels             *[]FanLevel `json:"fan_levels,omitempty"`
+	FanTowerStartTemp     *float64    `json:"fan_tower_start_temp,omitempty"`
 }
 
 const CONFIG_PATH = "pkg/config/config.json"
@@ -98,7 +91,7 @@ func getDefaultValue() RPIConfigDTO {
 		OledDisk:              "total",
 		OledNetworkInterface:  "all",
 		OledSleepTimeout:      10,
-		FanGpioMode:           Cool,
+		FanGpioMode:           AlwaysOn,
 		FanGpioLed:            Follow,
 		VibrationSwitchPullUp: false,
 		FanUpdateInterval:     5,
@@ -108,12 +101,7 @@ func getDefaultValue() RPIConfigDTO {
 			{"MEDIUM", 55.0, 75.0},
 			{"HIGH", 65.0, 100.0},
 		},
-		FanTowerLevels: []FanTowerLevel{
-			{"OFF", -200, 48, 0},  // выкл до ~48°C
-			{"LOW", 43, 58, 1},    // минимальная скорость
-			{"MEDIUM", 53, 68, 2}, // средняя
-			{"HIGH", 63, 100, 4},  // максимальная (4 = 100%)
-		},
+		FanTowerStartTemp: 50.0,
 	}
 }
 
@@ -228,8 +216,8 @@ func UpdateConfig(updates *RPIConfigUpdate) (*RPIConfigDTO, error) {
 	}
 
 	// == основной tower вентилятор ==
-	if updates.FanTowerLevels != nil {
-		currentCfg.FanTowerLevels = *updates.FanTowerLevels
+	if updates.FanTowerStartTemp != nil {
+		currentCfg.FanTowerStartTemp = *updates.FanTowerStartTemp
 	}
 
 	// 3. Записываем обновленный конфиг в файл
