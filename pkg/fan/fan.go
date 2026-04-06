@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	GpioFanPin int = 6
+	GpioFanPin    int = 6
+	GpioFanLedPin int = 5
 )
 
 const pythonScript = "scripts/rpi_fan/set_fan.py"
@@ -40,15 +41,11 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		fan_levels := cfg.FanLevels
 
 		// === Логика уровней с гистерезисом (как в официальном fan_service.py) ===
-		changed := false
 		if temp < fan_levels[level].Low {
 			level--
-			changed = true
 		} else if temp > fan_levels[level].High {
 			level++
-			changed = true
 		}
-
 		// Ограничиваем уровень
 		if level < 0 {
 			level = 0
@@ -58,38 +55,55 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		}
 
 		// Включаем gpio_fan, если уровень >= gpio_fan_mode
-		on := level >= cfg.GpioFanMode
+		fanOn := level >= cfg.GpioFanMode
 
-		if err := setFan(GpioFanPin, on); err != nil {
-			log.Printf("fan: set failed: %v", err)
+		// === LED логика (точно как в официальном коде) ===
+		ledState := 0
+		switch cfg.GpioFanLed {
+		case "follow":
+			if fanOn {
+				ledState = 1
+			}
+		case "on":
+			ledState = 1
+		case "off":
+			ledState = 0
+		default:
+			ledState = 0 // fallback
+		}
+
+		if err := setFanAndLed(GpioFanPin, fanOn, GpioFanLedPin, ledState); err != nil {
+			log.Printf("fan+led: set failed: %v", err)
 		} else {
-			statusStr := "ON"
-			if !on {
-				statusStr = "OFF"
+			fanStr := "ON"
+			if !fanOn {
+				fanStr = "OFF"
 			}
-			if changed {
-				log.Printf("Fan GPIO%d | Temp %.1f°C → %s (level %d: %s, power %d%%)",
-					GpioFanPin, temp, statusStr, level, fan_levels[level].Name, int(fan_levels[level].High))
-			} else {
-				log.Printf("Fan GPIO%d | Temp %.1f°C | %s (level %d: %s)",
-					GpioFanPin, temp, statusStr, level, fan_levels[level].Name)
+			ledStr := "ON"
+			if ledState == 0 {
+				ledStr = "OFF"
 			}
+			log.Printf("Fan GPIO%d=%s | LED GPIO%d=%s | Temp %.1f°C | Level %d (%s)",
+				GpioFanPin, fanStr, GpioFanLedPin, ledStr, temp, level, fan_levels[level].Name)
 		}
 	}
 }
 
-func setFan(pin int, on bool) error {
+func setFanAndLed(fanPin int, fanOn bool, ledPin int, ledState int) error {
 	scriptPath, _ := filepath.Abs(pythonScript)
 
-	state := 0
-	if on {
-		state = 1
+	fanState := 0
+	if fanOn {
+		fanState = 1
 	}
 
-	cmd := exec.Command("python3", scriptPath, fmt.Sprintf("%d", pin), fmt.Sprintf("%d", state))
-	output, err := cmd.CombinedOutput()
+	cmd := exec.Command("python3", scriptPath,
+		fmt.Sprintf("%d", fanPin), fmt.Sprintf("%d", fanState),
+		fmt.Sprintf("%d", ledPin), fmt.Sprintf("%d", ledState),
+	)
 
-	log.Printf("Fan python output: %s", strings.TrimSpace(string(output)))
+	output, err := cmd.CombinedOutput()
+	log.Printf("Fan+LED python output: %s", strings.TrimSpace(string(output)))
 
 	if err != nil {
 		return fmt.Errorf("python error: %v | output: %s", err, output)

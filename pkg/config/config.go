@@ -10,9 +10,9 @@ type RPIRgbStyle string
 type RPIGpioFanLed string
 
 type FanLevel struct {
-	Name string
-	Low  float64
-	High float64
+	Name string  `json:"name"`
+	Low  float64 `json:"low"`
+	High float64 `json:"high"`
 }
 
 // type RPIGpioFanMode int

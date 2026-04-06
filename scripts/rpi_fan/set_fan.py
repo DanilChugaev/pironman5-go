@@ -2,20 +2,31 @@
 import sys
 import lgpio
 
-if len(sys.argv) != 3:
-    print("Usage: python set_fan.py <gpio_pin> <0|1>")
+if len(sys.argv) != 5:
+    print("Usage: python set_fan.py <fan_pin> <fan_state> <led_pin> <led_state>")
+    print("       states: 0=OFF, 1=ON")
     sys.exit(1)
 
-pin = int(sys.argv[1])
-state = int(sys.argv[2])
+fan_pin = int(sys.argv[1])
+fan_state = int(sys.argv[2])
+led_pin = int(sys.argv[3])
+led_state = int(sys.argv[4])
 
 try:
-    h = lgpio.gpiochip_open(4)          # ← на RPi 5 основной чип = 4
-    lgpio.gpio_claim_output(h, pin)
-    lgpio.gpio_write(h, pin, state)
-    status = "ON" if state else "OFF"
-    print(f"OK: Fan GPIO{pin} → {status} (lgpio, chip=4)")
-    # Не закрываем handle здесь — состояние сохранится
+    h = lgpio.gpiochip_open(4)  # RPi 5 main gpiochip
+
+    # Fan
+    lgpio.gpio_claim_output(h, fan_pin)
+    lgpio.gpio_write(h, fan_pin, fan_state)
+
+    # LED
+    lgpio.gpio_claim_output(h, led_pin)
+    lgpio.gpio_write(h, led_pin, led_state)
+
+    fan_status = "ON" if fan_state else "OFF"
+    led_status = "ON" if led_state else "OFF"
+    print(f"OK: Fan GPIO{fan_pin}={fan_status} | LED GPIO{led_pin}={led_status}")
+
 except Exception as e:
     print(f"ERROR: {e}")
     sys.exit(1)
