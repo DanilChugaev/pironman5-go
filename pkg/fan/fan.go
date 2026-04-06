@@ -55,11 +55,11 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		}
 
 		// Включаем gpio_fan, если уровень >= gpio_fan_mode
-		fanOn := level >= cfg.GpioFanMode
+		fanOn := level >= cfg.FanGpioMode
 
 		// === LED логика (точно как в официальном коде) ===
 		ledState := 0
-		switch cfg.GpioFanLed {
+		switch cfg.FanGpioLed {
 		case "follow":
 			if fanOn {
 				ledState = 1
