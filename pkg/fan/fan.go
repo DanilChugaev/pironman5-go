@@ -5,6 +5,7 @@ import (
 	"log"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -79,6 +80,7 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 		// === 3. Tower-фан ===
 		fan_tower_enabled := cfg.FanTowerEnabled
 		if fan_tower_enabled != towerEnabled {
+			towerEnabled = fan_tower_enabled
 			pwm := 0
 
 			if fan_tower_enabled == true {
@@ -92,7 +94,7 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 			}
 		}
 
-		log.Printf("Tower enabled=%b | Temp %.1f°C", fan_tower_enabled, temp)
+		log.Printf("Tower enabled=%s | Temp %.1f°C", strconv.FormatBool(fan_tower_enabled), temp)
 
 		if err := setFanAndLed(FanGpioPin, fanOn, FanGpioLedPin, ledState); err != nil {
 			log.Printf("fan+led: %v", err)
