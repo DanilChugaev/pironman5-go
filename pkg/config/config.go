@@ -96,10 +96,10 @@ func getDefaultValue() RPIConfigDTO {
 		VibrationSwitchPullUp: false,
 		FanUpdateInterval:     5,
 		FanLevels: []FanLevel{
-			{"OFF", -200, 55.0},
-			{"LOW", 45.0, 65.0},
-			{"MEDIUM", 55.0, 75.0},
-			{"HIGH", 65.0, 100.0},
+			{"OFF", -200, 45.0},
+			{"LOW", 35.0, 55.0},
+			{"MEDIUM", 45.0, 65.0},
+			{"HIGH", 55.0, 100.0},
 		},
 		FanTowerEnabled: false,
 	}

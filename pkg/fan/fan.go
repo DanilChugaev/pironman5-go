@@ -94,7 +94,7 @@ func StartFanControlLoop(fanUpdateInterval uint64) {
 			}
 		}
 
-		log.Printf("Tower enabled=%s | Temp %.1f°C", strconv.FormatBool(fan_tower_enabled), temp)
+		log.Printf("Tower enabled=%s", strconv.FormatBool(fan_tower_enabled))
 
 		if err := setFanAndLed(FanGpioPin, fanOn, FanGpioLedPin, ledState); err != nil {
 			log.Printf("fan+led: %v", err)

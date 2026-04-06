@@ -23,9 +23,7 @@ try:
     lgpio.gpio_claim_output(h, led_pin)
     lgpio.gpio_write(h, led_pin, led_state)
 
-    fan_status = "ON" if fan_state else "OFF"
-    led_status = "ON" if led_state else "OFF"
-    print(f"OK: Fan GPIO{fan_pin}={fan_status} | LED GPIO{led_pin}={led_status}")
+    print(f"OK")
 
 except Exception as e:
     print(f"ERROR: {e}")

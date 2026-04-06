@@ -50,7 +50,7 @@ func HandleServerError(c *gin.Context, s int, m string) {
 }
 
 func main() {
-	fmt.Println("🚀 Pironman5-Go v0.13.8")
+	fmt.Println("🚀 Pironman5-Go v0.13.9")
 
 	// == инициализируем дефолтный конфиг, если его нет ==
 	cfg, err := config.LoadConfig()
